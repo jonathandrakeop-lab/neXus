@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #1a0028; /* Roxo escuro */
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Linhas douradas no fundo */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 40px,
+        rgba(218,165,32,0.15) 40px,
+        rgba(218,165,32,0.15) 42px
+      );
+      z-index: 0;
+    }
+
+    .dashboard {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid goldenrod;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 0 20px rgba(218,165,32,0.3);
+    }
+
+    .card img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 2px solid goldenrod;
+      margin-bottom: 15px;
+    }
+
+    h2 {
+      margin: 10px 0;
+      color: goldenrod;
+    }
+
+    p {
+      margin: 5px 0 15px;
+      color: #ddd;
+    }
+
+    button {
+      background: goldenrod;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+      width: 100%;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #ffcc33;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <div class="card">
+      <img id="userAvatar" src="" alt="Avatar">
+      <h2 id="userName">Carregando...</h2>
+      <p id="userEmail"></p>
+      <button id="logoutBtn">Sair</button>
+    </div>
+  </div>
+
+  <script>
+    // 🔑 Configurações do projeto Supabase
+    const SUPABASE_URL = "https://oxlhrwkbsxepurfzvcdw.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bGhyd2tic3hlcHVyZnp2Y2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MDk4NjcsImV4cCI6MjA3NDM4NTg2N30.wzXQ3oAvmp0kGsTzxE86gJoD8GlEPZtWHeWhWFX3VOo";
+
+    const { createClient } = window.supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function loadUser() {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+
+      if (!user) {
+        // Se não tiver sessão, volta pro login
+        window.location.href = "index.html";
+        return;
+      }
+
+      // Preenche os dados
+      document.getElementById("userName").textContent = user.user_metadata.full_name || "Usuário";
+      document.getElementById("userEmail").textContent = user.email || "";
+      document.getElementById("userAvatar").src = user.user_metadata.avatar_url || "https://via.placeholder.com/80";
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await supabaseClient.auth.signOut();
+      window.location.href = "index.html";
+    });
+
+    loadUser();
+  </script>
+</body>
+</html>
