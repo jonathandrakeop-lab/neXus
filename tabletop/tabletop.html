@@ -142,6 +142,7 @@
       background-size: cover;
       background-position: center;
       transition: 0.3s;
+      text-decoration: none;
     }
 
     .mesa:hover {
@@ -155,6 +156,8 @@
       border-radius: 0 0 8px 8px;
       width: 100%;
       text-align: center;
+      color: #fff;
+      display: block;
     }
   </style>
 </head>
@@ -162,9 +165,9 @@
   <div class="sidebar">
     <h2>neXus</h2>
     <a href="../dashboard.html"> Dashboard</a>
-      <a href="../sistemas/sistemas.html"> Sistemas</a>
-      <a href="../homebrews/homebrews.html"> Homebrews</a>
-      <a href="../tabletop/tabletop.html"> Tabletop</a>
+    <a href="../sistemas/sistemas.html"> Sistemas</a>
+    <a href="../homebrews/homebrews.html"> Homebrews</a>
+    <a href="../tabletop/tabletop.html" class="active"> Tabletop</a>
   </div>
 
   <div class="main">
@@ -193,26 +196,46 @@
     const fileInput = document.getElementById('bgMesa');
 
     let selectedImage = null;
+    let mesas = [];
 
-    // Clique na área abre o seletor
+    // === LocalStorage Helpers ===
+    function salvarMesas() {
+      localStorage.setItem("mesas", JSON.stringify(mesas));
+    }
+    function carregarMesas() {
+      const data = localStorage.getItem("mesas");
+      return data ? JSON.parse(data) : [];
+    }
+
+    // === Render Mesa ===
+    function renderMesa(mesa) {
+      const link = document.createElement('a');
+      link.href = `mesa.html?id=${mesa.id}`;
+      link.classList.add('mesa');
+      link.style.backgroundImage = `url(${mesa.background})`;
+      link.innerHTML = `<span>${mesa.nome}</span>`;
+      lista.appendChild(link);
+    }
+
+    // === Inicializar mesas salvas ===
+    window.addEventListener("DOMContentLoaded", () => {
+      mesas = carregarMesas();
+      mesas.forEach(renderMesa);
+    });
+
+    // === Upload de imagem ===
     uploadArea.addEventListener('click', () => fileInput.click());
-
-    // Arquivo selecionado
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) handleFile(file);
     });
-
-    // Drag & Drop
     uploadArea.addEventListener('dragover', (e) => {
       e.preventDefault();
       uploadArea.classList.add('dragover');
     });
-
     uploadArea.addEventListener('dragleave', () => {
       uploadArea.classList.remove('dragover');
     });
-
     uploadArea.addEventListener('drop', (e) => {
       e.preventDefault();
       uploadArea.classList.remove('dragover');
@@ -231,7 +254,7 @@
       reader.readAsDataURL(file);
     }
 
-    // Criar mesa
+    // === Criar Mesa ===
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const nome = document.getElementById('nomeMesa').value;
@@ -240,16 +263,19 @@
         return;
       }
 
-      const mesa = document.createElement('div');
-      mesa.classList.add('mesa');
-      mesa.style.backgroundImage = `url(${selectedImage})`;
-      mesa.innerHTML = `<span>${nome}</span>`;
+      const mesa = {
+        id: Date.now(),
+        nome,
+        background: selectedImage
+      };
 
-      lista.appendChild(mesa);
+      mesas.push(mesa);
+      salvarMesas();
+      renderMesa(mesa);
 
       form.reset();
       selectedImage = null;
-      uploadArea.textContent = "Escolha o background da sua mesa";
+      uploadArea.textContent = "Escolha o background de sua mesa";
       uploadArea.style.color = "#bbb";
       uploadArea.style.borderColor = "#444";
     });

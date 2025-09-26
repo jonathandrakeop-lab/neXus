@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Tabletop - neXus</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    /* Área central (tabletop futuro) */
+    .tabletop {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 20px;
+    }
+
+    /* Menu inferior */
+    .menu-bottom {
+      position: fixed;
+      bottom: -220px;
+      left: 0;
+      right: 0;
+      background: rgba(20, 20, 20, 0.9);
+      border-top: 2px solid rgba(255, 0, 68, 0.5);
+      transition: bottom 0.4s ease;
+      height: 200px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .menu-bottom.open {
+      bottom: 0;
+    }
+
+    /* Conteúdo */
+    .menu-content {
+      padding: 15px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .menu-item {
+      background: rgba(50, 50, 50, 0.6);
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: 1px solid rgba(100, 100, 100, 0.4);
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+
+    .menu-item:hover {
+      background: rgba(70, 70, 70, 0.7);
+    }
+
+    /* Botão inferior */
+    .open-btn-bottom {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 0, 68, 0.8);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .open-btn-bottom:hover {
+      background: rgba(255, 0, 68, 1);
+    }
+
+    /* Menu direito */
+    .menu-right {
+      position: fixed;
+      top: 0;
+      right: -220px;
+      width: 200px;
+      height: 100%;
+      background: rgba(20, 20, 20, 0.9);
+      border-left: 2px solid rgba(255, 0, 68, 0.5);
+      transition: right 0.4s ease;
+      border-radius: 12px 0 0 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .menu-right.open {
+      right: 0;
+    }
+
+    /* Botão lateral */
+    .open-btn-right {
+      position: fixed;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      background: rgba(255, 0, 68, 0.8);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .open-btn-right:hover {
+      background: rgba(255, 0, 68, 1);
+    }
+  </style>
+</head>
+<body>
+  <div class="tabletop">
+    Aqui vai o tabletop futuramente (tokens, grid, etc).
+  </div>
+
+  <!-- Menu inferior -->
+  <div class="menu-bottom" id="menuBottom">
+    <div class="menu-content">
+      <div class="menu-item">Tokens</div>
+      <div class="menu-item">Imagens</div>
+      <div class="menu-item">Config</div>
+    </div>
+  </div>
+  <button class="open-btn-bottom" id="toggleBtnBottom" onclick="toggleMenu('bottom')">▲</button>
+
+  <!-- Menu direito -->
+  <div class="menu-right" id="menuRight">
+    <div class="menu-content" style="flex-direction: column; gap: 15px;">
+      <div class="menu-item">Ferramenta 1</div>
+      <div class="menu-item">Ferramenta 2</div>
+      <div class="menu-item">Ferramenta 3</div>
+    </div>
+  </div>
+  <button class="open-btn-right" id="toggleBtnRight" onclick="toggleMenu('right')">◀</button>
+
+  <script>
+    function toggleMenu(side) {
+      if (side === 'bottom') {
+        const menu = document.getElementById('menuBottom');
+        const btn = document.getElementById('toggleBtnBottom');
+        menu.classList.toggle('open');
+        btn.textContent = menu.classList.contains('open') ? '▼' : '▲';
+      }
+      if (side === 'right') {
+        const menu = document.getElementById('menuRight');
+        const btn = document.getElementById('toggleBtnRight');
+        menu.classList.toggle('open');
+        btn.textContent = menu.classList.contains('open') ? '▶' : '◀';
+      }
+    }
+  </script>
+</body>
+</html>
