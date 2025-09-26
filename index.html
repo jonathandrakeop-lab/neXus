@@ -75,7 +75,7 @@
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + "/dashboard.html"
+          redirectTo: "https://jonathandrakeop-lab.github.io/neXus/dashboard.html"
         }
       });
 
