@@ -1,0 +1,93 @@
+body { margin:0; background:#111; color:#fff; font-family:sans-serif; }
+canvas { display:block; }
+
+#menuToggleBottom {
+  position:fixed; bottom:15px; left:36%;
+  background:#232323; border-radius:50%;
+  padding:14px; cursor:pointer; z-index:6;
+  font-size:18px; text-align:center; color:#fff;
+}
+#menuToggleBottom:hover { background:#2a2a2a; }
+
+#menu.hidden { 
+  opacity:0; 
+  transform:translate(-50%,100%); 
+  pointer-events:none; 
+}
+
+#menuToggle {
+  position:fixed; bottom:15px; right:15px;
+  background:#232323; border-radius:50%;
+  padding:14px; cursor:pointer; z-index:6;
+  font-size:20px; text-align:center; color:#fff;
+}
+#menuToggle:hover { background:#2a2a2a; }
+
+#controls {
+  position:fixed; bottom:70px; right:15px;
+  display:flex; flex-direction:column; gap:10px;
+  align-items:flex-end;
+  transition:opacity 0.3s, transform 0.3s;
+}
+#controls.hidden { opacity:0; pointer-events:none; transform:translateY(20px); }
+
+#gridBtn { background:#222; border-radius:50%; padding:12px; cursor:pointer; z-index:5; }
+#gridBtn:hover { background:#333; }
+#opacityControl { transform:rotate(-90deg); width:120px; }
+
+#menu {
+  position:fixed; bottom:0; left:50%;
+  transform:translateX(-50%);
+  background:#222; padding:6px 10px;
+  border-radius:10px 10px 0 0;
+  display:flex; gap:15px;
+}
+.category { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
+.thumbs { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; }
+.thumbs img { width:28px; height:28px; object-fit:cover; border:1px solid #555; border-radius:4px; cursor:grab; }
+
+#modal {
+  position:fixed; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  background:#222; border:1px solid #444;
+  padding:20px; border-radius:10px;
+  display:none; flex-direction:column; gap:10px;
+  z-index:10;
+}
+#drop { border:2px dashed #555; padding:20px; text-align:center; cursor:pointer; }
+input[type=number] { width:60px; text-align:center; }
+button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; }
+#addBtn { background:#161616; color:#fff; }
+#cancelBtn { background:#f44336; color:#fff; }
+
+/* --- menu flutuante --- */
+#tokenMenu {
+  position:absolute;
+  background:#333;
+  border:1px solid #555;
+  border-radius:6px;
+  padding:6px;
+  display:none;
+  flex-direction:column;
+  gap:6px;
+  z-index:20;
+}
+#tokenMenu button {
+  background:#444;
+  border:none;
+  padding:4px;
+  border-radius:4px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+}
+#tokenMenu button img {
+  max-width:24px;
+  max-height:24px;
+}
+#tokenMenu button:hover { background:#666; }
+#deleteBtn { background:#f44336; }
+#deleteBtn:hover { background:#d32f2f; }

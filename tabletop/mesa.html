@@ -256,7 +256,20 @@ function draw(){
     ctx.translate(x,y);
     ctx.rotate(inst.rotation||0);
     if(inst.flipped){ctx.scale(-1,1);}
-    ctx.drawImage(img,-s/2,-s/2,s,s);
+    
+    // --- mantém proporção ---
+    const iw=img.width, ih=img.height, aspect=iw/ih;
+    let drawW, drawH;
+    if(aspect>1){ // mais largo
+      drawW=s;
+      drawH=s/aspect;
+    } else { // mais alto
+      drawW=s*aspect;
+      drawH=s;
+    }
+    ctx.drawImage(img,-drawW/2,-drawH/2,drawW,drawH);
+    // ------------------------
+    
     ctx.restore();
   });
 }

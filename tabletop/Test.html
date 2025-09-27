@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Grid + Menu</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <!-- Botão de toggle (direita) -->
+  <div id="menuToggle">☰</div> 
+
+  <!-- Botão de toggle (esquerda) -->
+  <div id="menuToggleBottom">▼</div>
+
+  <!-- Controles flutuantes (direita) -->
+  <div id="controls" class="hidden">
+    <div id="gridBtn">◇</div>
+    <input type="range" id="opacityControl" min="0" max="100" value="30">
+  </div>
+
+  <div id="menu">
+    <div class="category" data-cat="scenes">🎬<div class="thumbs"></div></div>
+    <div class="category" data-cat="maps">🗺<div class="thumbs"></div></div>
+    <div class="category" data-cat="tokens">🎭<div class="thumbs"></div></div>
+  </div>
+
+  <div id="modal">
+    <div id="drop">Selecione ou solte aqui</div>
+    <label>Tamanho: <input type="number" id="sizeInput" value="1" min="1"></label>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button id="addBtn">Adicionar</button>
+      <button id="cancelBtn">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Menu flutuante do token -->
+  <div id="tokenMenu">
+    <button id="deleteBtn"><img src="Trashy.png" alt="Excluir"></button>
+    <button id="flipBtn"><img src="Flippy.png" alt="Flipar"></button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
