@@ -1,263 +1,331 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <title>Tabletop - Grid funcionando</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    :root{
-      --bg: #000;
-      --grid-color: rgba(255,255,255,0.12);
-      --cell: 50px;        /* tamanho do quadrado/losango */
-      --hex-w: 60px;       /* largura do tile hex */
-      --hex-h: 52px;       /* altura do tile hex */
-    }
+<meta charset="UTF-8">
+<title>Grid + Menu</title>
+<style>
+  body { margin:0; background:#111; color:#fff; font-family:sans-serif; }
+  canvas { display:block; }
+  
+#menuToggleBottom {
+  position:fixed; bottom:15px; left:36%;
+  background:#232323; border-radius:50%;
+  padding:14px; cursor:pointer; z-index:6;
+  font-size:18px; text-align:center; color:#fff;
+}
+#menuToggleBottom:hover { background:#2a2a2a; }
 
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      height:100vh;
-      overflow:hidden;
-      background:var(--bg);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    }
+#menu.hidden { 
+  opacity:0; 
+  transform:translate(-50%,100%); 
+  pointer-events:none; 
+}
 
-    /* viewport visível */
-    #viewport{
-      width:100vw;
-      height:100vh;
-      position:relative;
-      cursor:grab;
-      user-select:none;
-      -webkit-user-select:none;
-      touch-action: none;
-    }
+  #menuToggle {
+    position:fixed; bottom:15px; right:15px;
+    background:#232323; border-radius:50%;
+    padding:14px; cursor:pointer; z-index:6;
+    font-size:20px; text-align:center; color:#fff;
+  }
+  #menuToggle:hover { background:#2a2a2a; }
+  #controls {
+    position:fixed; bottom:70px; right:15px;
+    display:flex; flex-direction:column; gap:10px;
+    align-items:flex-end;
+    transition:opacity 0.3s, transform 0.3s;
+  }
+  #controls.hidden { opacity:0; pointer-events:none; transform:translateY(20px); }
+  #gridBtn { background:#222; border-radius:50%; padding:12px; cursor:pointer; z-index:5; }
+  #gridBtn:hover { background:#333; }
+  #opacityControl { transform:rotate(-90deg); width:120px; }
+  #menu { position:fixed; bottom:0; left:50%; transform:translateX(-50%); background:#222; padding:6px 10px; border-radius:10px 10px 0 0; display:flex; gap:15px; }
+  .category { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
+  .thumbs { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; }
+  .thumbs img { width:28px; height:28px; object-fit:cover; border:1px solid #555; border-radius:4px; cursor:grab; }
+  #modal { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#222; border:1px solid #444; padding:20px; border-radius:10px; display:none; flex-direction:column; gap:10px; z-index:10; }
+  #drop { border:2px dashed #555; padding:20px; text-align:center; cursor:pointer; }
+  input[type=number] { width:60px; text-align:center; }
+  button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; }
+  #addBtn { background:#161616; color:#fff; }
+  #cancelBtn { background:#f44336; color:#fff; }
 
-    /* O plano grande central (o "mapa") */
-    #map{
-      position:absolute;
-      left:0;
-      top:0;
-      width:4000px;
-      height:4000px;
-      background-color: var(--bg);
-      transform-origin: center center;
-      transition: background 0.15s;
-    }
-
-    /* ----- GRID STYLES ----- */
-    /* grade quadrada */
-    .grid-square{
-      background-image:
-        linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
-        linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
-      background-size: var(--cell) var(--cell);
-    }
-
-    /* losango (diagonal X formando losangos) */
-    .grid-diamond{
-      /* duas linhas diagonais que formam os losangos quando repetidas */
-      background-image:
-        linear-gradient(45deg, var(--grid-color) 1px, transparent 1px),
-        linear-gradient(-45deg, var(--grid-color) 1px, transparent 1px);
-      background-size: var(--cell) var(--cell);
-      background-position: 0 0, 0 0;
-    }
-
-    /* HEX (aproximação por 3 conjuntos de linhas) */
-    .grid-hex{
-      /* três conjuntos de linhas (0°, 30° e -30°) que, juntos, formam um padrão hex-like */
-      background-image:
-        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px),
-        linear-gradient(30deg, var(--grid-color) 1px, transparent 1px),
-        linear-gradient(-30deg, var(--grid-color) 1px, transparent 1px);
-      /* tamanho do tile que define a densidade/escala do hex */
-      background-size: var(--hex-w) var(--hex-h);
-      background-position: 0 0, 0 0, 0 0;
-    }
-
-    /* ----- MENU (canto inferior direito) ----- */
-    .menu {
-      position: fixed;
-      right: 20px;
-      bottom: 20px;
-      display:flex;
-      flex-direction: column;
-      align-items:center;
-      gap:8px;
-    }
-
-    .menu .submenu{
-      display:none;
-      flex-direction:column;
-      gap:8px;
-      margin-bottom:6px;
-      align-items:center;
-    }
-
-    .menu.open .submenu{ display:flex; }
-
-    .menu button {
-      width:44px;
-      height:44px;
-      border-radius:8px;
-      border: none;
-      background: rgba(255,0,68,0.9);
-      color: white;
-      font-size:18px;
-      cursor:pointer;
-      display:inline-grid;
-      place-items:center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-      transition: transform .08s, background .12s;
-    }
-    .menu button:hover{ transform: translateY(-3px); }
-
-    .submenu button{
-      width:40px; height:40px; border-radius:8px;
-      background: rgba(30,30,30,0.8);
-      font-size:18px;
-    }
-    .submenu button.active{
-      background: rgba(255,0,68,0.92);
-    }
-
-    /* dica no centro do mapa */
-    #hint {
-      position: absolute;
-      left:50%;
-      top:50%;
-      transform: translate(-50%,-50%);
-      color: #999;
-      pointer-events:none;
-      font-size:18px;
-      text-align:center;
-    }
-  </style>
+  /* --- menu flutuante --- */
+  #tokenMenu {
+    position:absolute;
+    background:#333;
+    border:1px solid #555;
+    border-radius:6px;
+    padding:6px;
+    display:none;
+    flex-direction:column;
+    gap:6px;
+    z-index:20;
+  }
+  #tokenMenu button {
+    background:#444;
+    border:none;
+    padding:4px;
+    border-radius:4px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:36px;
+    height:36px;
+  }
+  #tokenMenu button img {
+    max-width:24px;
+    max-height:24px;
+  }
+  #tokenMenu button:hover { background:#666; }
+  #deleteBtn { background:#f44336; }
+  #deleteBtn:hover { background:#d32f2f; }
+</style>
 </head>
 <body>
-  <div id="viewport">
-    <div id="map" class="grid-square"></div>
-    <div id="hint">Arraste com o mouse para mover • Role a roda para dar zoom</div>
+<canvas id="canvas"></canvas>
+
+<!-- Botão de toggle (direita) -->
+<div id="menuToggle">☰</div> 
+
+<!-- Botão de toggle (esquerda) -->
+<div id="menuToggleBottom">▼</div>
+
+<!-- Controles flutuantes (direita) -->
+<div id="controls" class="hidden">
+  <div id="gridBtn">◇</div>
+  <input type="range" id="opacityControl" min="0" max="100" value="30">
+</div>
+
+
+<div id="menu">
+  <div class="category" data-cat="scenes">🎬<div class="thumbs"></div></div>
+  <div class="category" data-cat="maps">🗺<div class="thumbs"></div></div>
+  <div class="category" data-cat="tokens">🎭<div class="thumbs"></div></div>
+</div>
+
+<div id="modal">
+  <div id="drop">Selecione ou solte aqui</div>
+  <label>Tamanho: <input type="number" id="sizeInput" value="1" min="1"></label>
+  <div style="display:flex; gap:10px; justify-content:center;">
+    <button id="addBtn">Adicionar</button>
+    <button id="cancelBtn">Cancelar</button>
   </div>
+</div>
 
-  <!-- Menu -->
-  <div class="menu" id="menu">
-    <div class="submenu" id="submenu">
-      <button id="btnSquare" title="Quadrada">🔲</button>
-      <button id="btnDiamond" title="Losango/Isométrica">🔷</button>
-      <button id="btnHex" title="Hexagonal">⬡</button>
-    </div>
-    <button id="mainBtn" title="Abrir opções">⚙️</button>
-  </div>
+<!-- Menu flutuante do token -->
+<div id="tokenMenu">
+  <button id="deleteBtn"><img src="Trashy.png" alt="Excluir"></button>
+  <button id="flipBtn"><img src="Flippy.png" alt="Flipar"></button>
+</div>
 
-  <script>
-    // Panning & Zoom (simples)
-    const viewport = document.getElementById('viewport');
-    const map = document.getElementById('map');
+<script>
+const canvas=document.getElementById("canvas"),ctx=canvas.getContext("2d");
+let w=innerWidth,h=innerHeight;canvas.width=w;canvas.height=h;
+onresize=()=>{w=innerWidth;h=innerHeight;canvas.width=w;canvas.height=h;draw();};
 
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let offsetX = 0, offsetY = 0;
-    let scale = 1;
+let cam={x:0,y:0,scale:1},panning=false,last={};
+let draggingToken=null,offset={x:0,y:0};
+let selectedToken=null;
 
-    viewport.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      startX = e.clientX - offsetX;
-      startY = e.clientY - offsetY;
-      document.body.style.cursor = 'grabbing';
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      offsetX = e.clientX - startX;
-      offsetY = e.clientY - startY;
-      updateTransform();
-    });
-
-    window.addEventListener('mouseup', () => {
-      isDragging = false;
-      document.body.style.cursor = 'default';
-    });
-
-    // zoom com roda do mouse (central, não focal, implementação simples)
-    viewport.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomIntensity = 0.12;
-      const delta = e.deltaY < 0 ? (1 + zoomIntensity) : (1 - zoomIntensity);
-      scale *= delta;
-      scale = Math.min(Math.max(0.4, scale), 3.5);
-      updateTransform();
-    }, { passive:false });
-
-    function updateTransform(){
-      map.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+canvas.onmousedown=e=>{
+  if(e.button!==0)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left-w/2)/cam.scale-cam.x;
+  const my=(e.clientY-rect.top-h/2)/cam.scale-cam.y;
+  for(let i=instances.length-1;i>=0;i--){
+    const inst=instances[i];
+    const s=inst.size*50;
+    if(mx>=inst.x-s/2 && mx<=inst.x+s/2 && my>=inst.y-s/2 && my<=inst.y+s/2){
+      draggingToken=inst;
+      offset.x=mx-inst.x;
+      offset.y=my-inst.y;
+      return;
     }
+  }
+  panning=true;last={x:e.clientX,y:e.clientY};
+};
+canvas.onmouseup=()=>{panning=false;draggingToken=null;localStorage.setItem("instances",JSON.stringify(instances));};
+canvas.onmousemove=e=>{
+  if(panning){
+    cam.x+=(e.clientX-last.x)/cam.scale;
+    cam.y+=(e.clientY-last.y)/cam.scale;
+    last={x:e.clientX,y:e.clientY};
+    draw();
+  }
+  if(draggingToken){
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left-w/2)/cam.scale-cam.x;
+    const my=(e.clientY-rect.top-h/2)/cam.scale-cam.y;
+    draggingToken.x=mx-offset.x;
+    draggingToken.y=my-offset.y;
+    draw();
+  }
+};
 
-    // Menu toggle
-    const menu = document.getElementById('menu');
-    const mainBtn = document.getElementById('mainBtn');
-    mainBtn.addEventListener('click', () => menu.classList.toggle('open'));
-
-    // Grid buttons
-    const btnSquare = document.getElementById('btnSquare');
-    const btnDiamond = document.getElementById('btnDiamond');
-    const btnHex = document.getElementById('btnHex');
-
-    function clearActive(){
-      btnSquare.classList.remove('active');
-      btnDiamond.classList.remove('active');
-      btnHex.classList.remove('active');
+// clique direito → menu flutuante
+canvas.oncontextmenu=e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left-w/2)/cam.scale-cam.x;
+  const my=(e.clientY-rect.top-h/2)/cam.scale-cam.y;
+  for(let i=instances.length-1;i>=0;i--){
+    const inst=instances[i];
+    const s=inst.size*50;
+    if(mx>=inst.x-s/2 && mx<=inst.x+s/2 && my>=inst.y-s/2 && my<=inst.y+s/2){
+      selectedToken=inst;
+      showTokenMenu(e.clientX,e.clientY);
+      return;
     }
+  }
+};
 
-    function setGrid(type){
-      // limpa classes e aplica
-      map.classList.remove('grid-square','grid-diamond','grid-hex');
-      if(type === 'square'){
-        map.classList.add('grid-square');
-      } else if(type === 'diamond'){
-        map.classList.add('grid-diamond');
-      } else if(type === 'hex'){
-        map.classList.add('grid-hex');
-      }
-      clearActive();
-      if(type === 'square') btnSquare.classList.add('active');
-      if(type === 'diamond') btnDiamond.classList.add('active');
-      if(type === 'hex') btnHex.classList.add('active');
+// clique fora → fecha menu
+document.addEventListener("mousedown",e=>{
+  if(tokenMenu.style.display==="flex"){
+    if(!tokenMenu.contains(e.target)){
+      const rect=canvas.getBoundingClientRect();
+      const mx=(e.clientX-rect.left-w/2)/cam.scale-cam.x;
+      const my=(e.clientY-rect.top-h/2)/cam.scale-cam.y;
+      if(selectedToken){
+        const s=selectedToken.size*50;
+        const insideToken=(mx>=selectedToken.x-s/2 && mx<=selectedToken.x+s/2 && my>=selectedToken.y-s/2 && my<=selectedToken.y+s/2);
+        if(!insideToken){ hideTokenMenu(); }
+      } else { hideTokenMenu(); }
     }
+  }
+});
 
-    btnSquare.addEventListener('click', () => setGrid('square'));
-    btnDiamond.addEventListener('click', () => setGrid('diamond'));
-    btnHex.addEventListener('click', () => setGrid('hex'));
+// SCROLL
+canvas.onwheel=e=>{
+  e.preventDefault();
+  if(draggingToken && e.shiftKey){
+    const delta = e.deltaY < 0 ? 0.1 : -0.1;
+    draggingToken.size = Math.max(0.1, draggingToken.size + delta);
+    draw();
+  } else if(draggingToken){
+    draggingToken.rotation = (draggingToken.rotation || 0) + e.deltaY * 0.001;
+    draw();
+  } else {
+    const f=1.1;
+    cam.scale*=e.deltaY<0?f:1/f;
+    draw();
+  }
+};
 
-    // grid padrão
-    setGrid('square');
+let opacity=0.3;
+document.getElementById("gridBtn").onclick=()=>{draw();};
+document.getElementById("opacityControl").oninput=e=>{opacity=e.target.value/100;draw();};
 
-    // pequenas melhorias de UX para touch (drag)
-    let lastTouch = null;
-    viewport.addEventListener('touchstart', (e) => {
-      if(e.touches.length === 1){
-        const t = e.touches[0];
-        isDragging = true;
-        startX = t.clientX - offsetX;
-        startY = t.clientY - offsetY;
-        lastTouch = t.identifier;
-      }
-    }, {passive:true});
+// GRID ISOMÉTRICA FIXA
+function drawIso(tw=80,th=40){
+  const w2=tw/2, h2=th/2;
+  const cols=Math.ceil(w/(w2*cam.scale))+4;
+  const rows=Math.ceil(h/(h2*cam.scale))+4;
+  ctx.strokeStyle=`rgba(255,255,255,${opacity})`;
 
-    window.addEventListener('touchmove', (e) => {
-      if(!isDragging) return;
-      const t = e.touches[0];
-      offsetX = t.clientX - startX;
-      offsetY = t.clientY - startY;
-      updateTransform();
-    }, {passive:true});
+  for(let r=-rows;r<rows;r++){
+    for(let c=-cols;c<cols;c++){
+      const worldX=(c-r)*w2;
+      const worldY=(c+r)*h2;
+      const x=w/2+(worldX+cam.x)*cam.scale;
+      const y=h/2+(worldY+cam.y)*cam.scale;
 
-    window.addEventListener('touchend', (e) => {
-      isDragging = false;
-      lastTouch = null;
-    });
+      ctx.beginPath();
+      ctx.moveTo(x,y-h2*cam.scale);
+      ctx.lineTo(x+w2*cam.scale,y);
+      ctx.lineTo(x,y+h2*cam.scale);
+      ctx.lineTo(x-w2*cam.scale,y);
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+}
 
-  </script>
+let instances=JSON.parse(localStorage.getItem("instances")||"[]");
+function draw(){
+  ctx.fillStyle="#111";ctx.fillRect(0,0,w,h);
+  drawIso();
+  instances.sort((a,b)=>a.y+(a.size*25)- (b.y+(b.size*25)));
+  instances.forEach(inst=>{
+    const img=new Image();img.src=inst.src;
+    const s=inst.size*50*cam.scale;
+    const x=w/2+(inst.x+cam.x)*cam.scale;
+    const y=h/2+(inst.y+cam.y)*cam.scale;
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(inst.rotation||0);
+    if(inst.flipped){ctx.scale(-1,1);}
+    ctx.drawImage(img,-s/2,-s/2,s,s);
+    ctx.restore();
+  });
+}
+draw();
+
+// Toggle controles
+document.getElementById("menuToggle").onclick=()=>{document.getElementById("controls").classList.toggle("hidden");};
+
+// Menu + Modal
+let currentCat=null, pendingImg=null;
+document.querySelectorAll(".category").forEach(cat=>{cat.onclick=()=>{currentCat=cat.dataset.cat;openModal();};});
+function openModal(){pendingImg=null;document.getElementById("drop").textContent="Selecione ou solte aqui";document.getElementById("sizeInput").value=1;document.getElementById("modal").style.display="flex";}
+function closeModal(){document.getElementById("modal").style.display="none";}
+const drop=document.getElementById("drop");
+drop.onclick=()=>{const inp=document.createElement("input");inp.type="file";inp.onchange=e=>loadFile(e.target.files[0]);inp.click();};
+drop.ondragover=e=>{e.preventDefault();};
+drop.ondrop=e=>{e.preventDefault();loadFile(e.dataTransfer.files[0]);};
+function loadFile(file){if(!file)return;const r=new FileReader();r.onload=()=>{pendingImg=r.result;drop.textContent=file.name;};r.readAsDataURL(file);}
+document.getElementById("addBtn").onclick=()=>{if(!pendingImg)return;const size=+document.getElementById("sizeInput").value||1;const cats=JSON.parse(localStorage.getItem("categories")||"{}");if(!cats[currentCat])cats[currentCat]=[];cats[currentCat].push({src:pendingImg,size});localStorage.setItem("categories",JSON.stringify(cats));renderCategories();closeModal();};
+document.getElementById("cancelBtn").onclick=closeModal;
+function renderCategories(){const cats=JSON.parse(localStorage.getItem("categories")||"{}");document.querySelectorAll(".category").forEach(cat=>{const div=cat.querySelector(".thumbs");div.innerHTML="";(cats[cat.dataset.cat]||[]).forEach(item=>{const img=document.createElement("img");img.src=item.src;img.draggable=true;img.ondragstart=e=>{e.dataTransfer.setData("item",JSON.stringify(item));};div.appendChild(img);});});}
+renderCategories();
+canvas.ondrop=e=>{e.preventDefault();const data=e.dataTransfer.getData("item");if(!data)return;const item=JSON.parse(data);const rect=canvas.getBoundingClientRect();const x=(e.clientX-rect.left-w/2)/cam.scale-cam.x;const y=(e.clientY-rect.top-h/2)/cam.scale-cam.y;instances.push({src:item.src,size:item.size,x,y});localStorage.setItem("instances",JSON.stringify(instances));draw();};
+canvas.ondragover=e=>e.preventDefault();
+// Toggle menu inferior (esquerda)
+const toggleBottom = document.getElementById("menuToggleBottom");
+const menu = document.getElementById("menu");
+
+toggleBottom.onclick = () => {
+  menu.classList.toggle("hidden");
+
+  // muda o símbolo do botão
+  if (menu.classList.contains("hidden")) {
+    toggleBottom.textContent = "▲";
+  } else {
+    toggleBottom.textContent = "▼";
+  }
+};
+
+// --- menu flutuante ---
+const tokenMenu = document.getElementById("tokenMenu");
+
+function showTokenMenu(x, y) {
+  tokenMenu.style.left = `${x+10}px`;
+  tokenMenu.style.top = `${y+10}px`;
+  tokenMenu.style.display = "flex";
+}
+
+function hideTokenMenu() {
+  tokenMenu.style.display = "none";
+  selectedToken = null;
+}
+
+document.getElementById("deleteBtn").onclick = () => {
+  if (selectedToken) {
+    instances = instances.filter(inst => inst !== selectedToken);
+    localStorage.setItem("instances", JSON.stringify(instances));
+    draw();
+    hideTokenMenu();
+  }
+};
+
+document.getElementById("flipBtn").onclick = () => {
+  if (selectedToken) {
+    selectedToken.flipped = !selectedToken.flipped;
+    localStorage.setItem("instances", JSON.stringify(instances));
+    draw();
+  }
+};
+</script>
 </body>
 </html>
