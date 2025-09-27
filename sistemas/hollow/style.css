@@ -1,15 +1,17 @@
-/* Geral do corpo e layout */
+/* Fundo em degradê */
 body {
-  font-family: 'Franklin Gothic Medium','Arial Narrow',sans-serif;
-  margin:0; padding:0;
-  min-height:100vh;
-  background: linear-gradient(135deg,#0d1b2a,#1a2a4d);
-  color:#e0e0e0;
-  position:relative;
-  overflow:hidden;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(to top, #040d16 0%, #071b30 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
+  min-height: 100vh;
+  color: #fff;
+  overflow: hidden;
 }
 
-/* Canvas de partículas */
+/* Canvas atrás de tudo */
 #bgParticles {
   position: fixed;
   top: 0;
@@ -17,5 +19,31 @@ body {
   width: 100%;
   height: 100%;
   z-index: 0;
-  pointer-events: none;
+}
+
+/* Header */
+header {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+header a {
+  color: #fff;
+  text-decoration: none;
+  font-size: 18px;
+  transition: color 0.2s;
+}
+header a:hover {
+  color: #f39c12;
+}
+
+/* Conteúdo principal */
+main {
+  padding: 20px;
+  position: relative;
+  z-index: 1;
 }
