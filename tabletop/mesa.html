@@ -1,173 +1,263 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Tabletop - neXus</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <title>Tabletop - Grid funcionando</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      margin: 0;
-      font-family: 'Orbitron', sans-serif;
-      background: #0a0a0a;
-      color: #fff;
-      height: 100vh;
-      display: flex;
+    :root{
+      --bg: #000;
+      --grid-color: rgba(255,255,255,0.12);
+      --cell: 50px;        /* tamanho do quadrado/losango */
+      --hex-w: 60px;       /* largura do tile hex */
+      --hex-h: 52px;       /* altura do tile hex */
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      height:100vh;
+      overflow:hidden;
+      background:var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+
+    /* viewport visível */
+    #viewport{
+      width:100vw;
+      height:100vh;
+      position:relative;
+      cursor:grab;
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action: none;
+    }
+
+    /* O plano grande central (o "mapa") */
+    #map{
+      position:absolute;
+      left:0;
+      top:0;
+      width:4000px;
+      height:4000px;
+      background-color: var(--bg);
+      transform-origin: center center;
+      transition: background 0.15s;
+    }
+
+    /* ----- GRID STYLES ----- */
+    /* grade quadrada */
+    .grid-square{
+      background-image:
+        linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+      background-size: var(--cell) var(--cell);
+    }
+
+    /* losango (diagonal X formando losangos) */
+    .grid-diamond{
+      /* duas linhas diagonais que formam os losangos quando repetidas */
+      background-image:
+        linear-gradient(45deg, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(-45deg, var(--grid-color) 1px, transparent 1px);
+      background-size: var(--cell) var(--cell);
+      background-position: 0 0, 0 0;
+    }
+
+    /* HEX (aproximação por 3 conjuntos de linhas) */
+    .grid-hex{
+      /* três conjuntos de linhas (0°, 30° e -30°) que, juntos, formam um padrão hex-like */
+      background-image:
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(30deg, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(-30deg, var(--grid-color) 1px, transparent 1px);
+      /* tamanho do tile que define a densidade/escala do hex */
+      background-size: var(--hex-w) var(--hex-h);
+      background-position: 0 0, 0 0, 0 0;
+    }
+
+    /* ----- MENU (canto inferior direito) ----- */
+    .menu {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      display:flex;
       flex-direction: column;
-      justify-content: space-between;
-      overflow: hidden;
+      align-items:center;
+      gap:8px;
     }
 
-    /* Área central (tabletop futuro) */
-    .tabletop {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #666;
-      font-size: 20px;
+    .menu .submenu{
+      display:none;
+      flex-direction:column;
+      gap:8px;
+      margin-bottom:6px;
+      align-items:center;
     }
 
-    /* Menu inferior */
-    .menu-bottom {
-      position: fixed;
-      bottom: -220px;
-      left: 0;
-      right: 0;
-      background: rgba(20, 20, 20, 0.9);
-      border-top: 2px solid rgba(255, 0, 68, 0.5);
-      transition: bottom 0.4s ease;
-      height: 200px;
-      border-radius: 12px 12px 0 0;
-    }
+    .menu.open .submenu{ display:flex; }
 
-    .menu-bottom.open {
-      bottom: 0;
-    }
-
-    /* Conteúdo */
-    .menu-content {
-      padding: 15px;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-    }
-
-    .menu-item {
-      background: rgba(50, 50, 50, 0.6);
-      padding: 10px 15px;
-      border-radius: 8px;
-      border: 1px solid rgba(100, 100, 100, 0.4);
-      transition: background 0.2s;
-      cursor: pointer;
-    }
-
-    .menu-item:hover {
-      background: rgba(70, 70, 70, 0.7);
-    }
-
-    /* Botão inferior */
-    .open-btn-bottom {
-      position: fixed;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 0, 68, 0.8);
+    .menu button {
+      width:44px;
+      height:44px;
+      border-radius:8px;
       border: none;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
+      background: rgba(255,0,68,0.9);
       color: white;
-      font-size: 18px;
-      cursor: pointer;
-      transition: background 0.3s;
+      font-size:18px;
+      cursor:pointer;
+      display:inline-grid;
+      place-items:center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      transition: transform .08s, background .12s;
+    }
+    .menu button:hover{ transform: translateY(-3px); }
+
+    .submenu button{
+      width:40px; height:40px; border-radius:8px;
+      background: rgba(30,30,30,0.8);
+      font-size:18px;
+    }
+    .submenu button.active{
+      background: rgba(255,0,68,0.92);
     }
 
-    .open-btn-bottom:hover {
-      background: rgba(255, 0, 68, 1);
-    }
-
-    /* Menu direito */
-    .menu-right {
-      position: fixed;
-      top: 0;
-      right: -220px;
-      width: 200px;
-      height: 100%;
-      background: rgba(20, 20, 20, 0.9);
-      border-left: 2px solid rgba(255, 0, 68, 0.5);
-      transition: right 0.4s ease;
-      border-radius: 12px 0 0 12px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .menu-right.open {
-      right: 0;
-    }
-
-    /* Botão lateral */
-    .open-btn-right {
-      position: fixed;
-      top: 50%;
-      right: 10px;
-      transform: translateY(-50%);
-      background: rgba(255, 0, 68, 0.8);
-      border: none;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      color: white;
-      font-size: 18px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    .open-btn-right:hover {
-      background: rgba(255, 0, 68, 1);
+    /* dica no centro do mapa */
+    #hint {
+      position: absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%,-50%);
+      color: #999;
+      pointer-events:none;
+      font-size:18px;
+      text-align:center;
     }
   </style>
 </head>
 <body>
-  <div class="tabletop">
-    Aqui vai o tabletop futuramente (tokens, grid, etc).
+  <div id="viewport">
+    <div id="map" class="grid-square"></div>
+    <div id="hint">Arraste com o mouse para mover • Role a roda para dar zoom</div>
   </div>
 
-  <!-- Menu inferior -->
-  <div class="menu-bottom" id="menuBottom">
-    <div class="menu-content">
-      <div class="menu-item">Tokens</div>
-      <div class="menu-item">Imagens</div>
-      <div class="menu-item">Config</div>
+  <!-- Menu -->
+  <div class="menu" id="menu">
+    <div class="submenu" id="submenu">
+      <button id="btnSquare" title="Quadrada">🔲</button>
+      <button id="btnDiamond" title="Losango/Isométrica">🔷</button>
+      <button id="btnHex" title="Hexagonal">⬡</button>
     </div>
+    <button id="mainBtn" title="Abrir opções">⚙️</button>
   </div>
-  <button class="open-btn-bottom" id="toggleBtnBottom" onclick="toggleMenu('bottom')">▲</button>
-
-  <!-- Menu direito -->
-  <div class="menu-right" id="menuRight">
-    <div class="menu-content" style="flex-direction: column; gap: 15px;">
-      <div class="menu-item">Ferramenta 1</div>
-      <div class="menu-item">Ferramenta 2</div>
-      <div class="menu-item">Ferramenta 3</div>
-    </div>
-  </div>
-  <button class="open-btn-right" id="toggleBtnRight" onclick="toggleMenu('right')">◀</button>
 
   <script>
-    function toggleMenu(side) {
-      if (side === 'bottom') {
-        const menu = document.getElementById('menuBottom');
-        const btn = document.getElementById('toggleBtnBottom');
-        menu.classList.toggle('open');
-        btn.textContent = menu.classList.contains('open') ? '▼' : '▲';
-      }
-      if (side === 'right') {
-        const menu = document.getElementById('menuRight');
-        const btn = document.getElementById('toggleBtnRight');
-        menu.classList.toggle('open');
-        btn.textContent = menu.classList.contains('open') ? '▶' : '◀';
-      }
+    // Panning & Zoom (simples)
+    const viewport = document.getElementById('viewport');
+    const map = document.getElementById('map');
+
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let offsetX = 0, offsetY = 0;
+    let scale = 1;
+
+    viewport.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX - offsetX;
+      startY = e.clientY - offsetY;
+      document.body.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      offsetX = e.clientX - startX;
+      offsetY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      document.body.style.cursor = 'default';
+    });
+
+    // zoom com roda do mouse (central, não focal, implementação simples)
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomIntensity = 0.12;
+      const delta = e.deltaY < 0 ? (1 + zoomIntensity) : (1 - zoomIntensity);
+      scale *= delta;
+      scale = Math.min(Math.max(0.4, scale), 3.5);
+      updateTransform();
+    }, { passive:false });
+
+    function updateTransform(){
+      map.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
     }
+
+    // Menu toggle
+    const menu = document.getElementById('menu');
+    const mainBtn = document.getElementById('mainBtn');
+    mainBtn.addEventListener('click', () => menu.classList.toggle('open'));
+
+    // Grid buttons
+    const btnSquare = document.getElementById('btnSquare');
+    const btnDiamond = document.getElementById('btnDiamond');
+    const btnHex = document.getElementById('btnHex');
+
+    function clearActive(){
+      btnSquare.classList.remove('active');
+      btnDiamond.classList.remove('active');
+      btnHex.classList.remove('active');
+    }
+
+    function setGrid(type){
+      // limpa classes e aplica
+      map.classList.remove('grid-square','grid-diamond','grid-hex');
+      if(type === 'square'){
+        map.classList.add('grid-square');
+      } else if(type === 'diamond'){
+        map.classList.add('grid-diamond');
+      } else if(type === 'hex'){
+        map.classList.add('grid-hex');
+      }
+      clearActive();
+      if(type === 'square') btnSquare.classList.add('active');
+      if(type === 'diamond') btnDiamond.classList.add('active');
+      if(type === 'hex') btnHex.classList.add('active');
+    }
+
+    btnSquare.addEventListener('click', () => setGrid('square'));
+    btnDiamond.addEventListener('click', () => setGrid('diamond'));
+    btnHex.addEventListener('click', () => setGrid('hex'));
+
+    // grid padrão
+    setGrid('square');
+
+    // pequenas melhorias de UX para touch (drag)
+    let lastTouch = null;
+    viewport.addEventListener('touchstart', (e) => {
+      if(e.touches.length === 1){
+        const t = e.touches[0];
+        isDragging = true;
+        startX = t.clientX - offsetX;
+        startY = t.clientY - offsetY;
+        lastTouch = t.identifier;
+      }
+    }, {passive:true});
+
+    window.addEventListener('touchmove', (e) => {
+      if(!isDragging) return;
+      const t = e.touches[0];
+      offsetX = t.clientX - startX;
+      offsetY = t.clientY - startY;
+      updateTransform();
+    }, {passive:true});
+
+    window.addEventListener('touchend', (e) => {
+      isDragging = false;
+      lastTouch = null;
+    });
+
   </script>
 </body>
 </html>

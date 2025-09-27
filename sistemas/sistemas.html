@@ -27,6 +27,7 @@
       box-shadow: 3px 0 8px rgba(0,0,0,0.6);
       display: flex;
       flex-direction: column;
+      z-index: 1001;
     }
     #sidebar.open {
       left: 0;
@@ -43,12 +44,32 @@
       height: auto;
     }
 
-    /* Nav alinhado embaixo */
+    /* User info */
+    #user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 15px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    #user-info img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
+    #user-info span {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fdd835;
+    }
+
+    /* Nav alinhado */
     #sidebar nav {
-      flex: 0;   /* não empurra mais nada */
+      flex: 1;
       padding: 20px;
     }
-    #sidebar nav a {
+    #sidebar nav a,
+    #logout {
       display: block;
       padding: 12px;
       margin: 6px 0;
@@ -56,8 +77,10 @@
       color: #eee;
       text-decoration: none;
       transition: background 0.2s, transform 0.2s;
+      cursor: pointer;
     }
-    #sidebar nav a:hover {
+    #sidebar nav a:hover,
+    #logout:hover {
       background: rgba(255,255,255,0.1);
       transform: translateX(5px);
     }
@@ -74,7 +97,7 @@
       font-size: 18px;
       border-radius: 6px;
       cursor: pointer;
-      z-index: 1000;
+      z-index: 1100;
       box-shadow: 0 2px 6px rgba(0,0,0,0.4);
       transition: background 0.2s;
     }
@@ -159,19 +182,23 @@
   </style>
 </head>
 <body>
-  <button id="menu-toggle">☰</button>
+  <button id="menu-toggle" aria-label="Abrir menu lateral">☰</button>
 
   <!-- Sidebar -->
   <div id="sidebar">
     <div class="logo">
       <img src="titulo.png" alt="neXus">
     </div>
+    <div id="user-info">
+      <img id="user-avatar" src="https://via.placeholder.com/60" alt="Avatar">
+      <span id="user-name">Carregando...</span>
+    </div>
     <nav>
       <a href="../dashboard.html"> Dashboard</a>
       <a href="../sistemas/sistemas.html"> Sistemas</a>
       <a href="../homebrews/homebrews.html"> Homebrews</a>
       <a href="../tabletop/tabletop.html"> Tabletop</a>
-      <a href="#" id="logout"> Sair</a>
+      <div id="logout">Sair</div>
     </nav>
   </div>
 
@@ -186,7 +213,7 @@
           <p>Investigue o oculto.</p>
         </div>
       </div>
-      <div class="card">
+      <div class="card" id="hollow-card">
         <img src="hollow.png" alt="Hollow Knight RPG">
         <div class="overlay">
           <h2>Hollow Knight RPG</h2>
@@ -226,6 +253,14 @@
       logoutBtn.addEventListener("click", async () => {
         await supabase.auth.signOut();
         window.location.href = "/neXus/index.html";
+      });
+    }
+
+    // Card Hollow Knight → redireciona
+    const hollowCard = document.getElementById("hollow-card");
+    if (hollowCard) {
+      hollowCard.addEventListener("click", () => {
+        window.location.href = "./hollow/personagens.html";
       });
     }
   </script>
