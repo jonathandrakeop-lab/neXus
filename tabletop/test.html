@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Grid Isométrica + Menu</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; background:#111; font-family:sans-serif; }
+  canvas { display:block; }
+
+  /* menu inferior */
+  #menuToggleBottom {
+    position:fixed;
+    bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    background:#222;
+    border-radius:10px 10px 0 0;
+    padding:10px 20px;
+    cursor:pointer;
+    color:#fff;
+    font-size:18px;
+    z-index:5;
+    text-align:center;
+    transition: background 0.3s;
+  }
+  #menuToggleBottom:hover { background:#333; }
+
+  #menu {
+    position:fixed;
+    bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    background:#222;
+    border-radius:10px 10px 0 0;
+    width:300px;
+    max-height:300px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding:10px;
+    box-sizing:border-box;
+    transition: transform 0.3s, opacity 0.3s;
+    opacity:0;
+    pointer-events:none;
+    transform: translate(-50%, 100%);
+    z-index:5;
+  }
+  #menu.open {
+    opacity:1;
+    pointer-events:auto;
+    transform: translate(-50%, 0);
+  }
+
+  /* conteúdo do menu */
+  #menuContent {
+    flex:1;
+    background:#333;
+    border-radius:6px;
+    padding:10px;
+    color:#fff;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<!-- botão do menu inferior -->
+<div id="menuToggleBottom">▼ Menu</div>
+
+<!-- menu inferior -->
+<div id="menu">
+  <div id="menuContent">
+    <p>Conteúdo do menu</p>
+    <p>Adicione aqui o que quiser</p>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let w = window.innerWidth;
+let h = window.innerHeight;
+canvas.width = w;
+canvas.height = h;
+
+let cam = { x: 0, y: 0, scale: 1 };
+let panning = false;
+let last = {};
+
+window.addEventListener('resize', () => {
+  w = window.innerWidth;
+  h = window.innerHeight;
+  canvas.width = w;
+  canvas.height = h;
+  draw();
+});
+
+// grid settings
+let tileWidth = 80;
+let tileHeight = 40;
+let opacity = 0.3;
+
+// mouse drag to pan
+canvas.addEventListener('mousedown', e => {
+  panning = true;
+  last = { x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener('mouseup', e => { panning = false; });
+canvas.addEventListener('mouseleave', e => { panning = false; });
+canvas.addEventListener('mousemove', e => {
+  if (panning) {
+    cam.x += (e.clientX - last.x) / cam.scale;
+    cam.y += (e.clientY - last.y) / cam.scale;
+    last = { x: e.clientX, y: e.clientY };
+    draw();
+  }
+});
+
+// zoom com scroll
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = 1.1;
+  cam.scale *= e.deltaY < 0 ? factor : 1/factor;
+  draw();
+});
+
+function drawIso() {
+  const w2 = tileWidth / 2;
+  const h2 = tileHeight / 2;
+  const cols = Math.ceil(w / (w2 * cam.scale)) + 4;
+  const rows = Math.ceil(h / (h2 * cam.scale)) + 4;
+
+  ctx.strokeStyle = `rgba(255,255,255,${opacity})`;
+  ctx.lineWidth = 1;
+
+  for (let r = -rows; r < rows; r++) {
+    for (let c = -cols; c < cols; c++) {
+      const worldX = (c - r) * w2;
+      const worldY = (c + r) * h2;
+      const x = w/2 + (worldX + cam.x) * cam.scale;
+      const y = h/2 + (worldY + cam.y) * cam.scale;
+
+      ctx.beginPath();
+      ctx.moveTo(x, y - h2 * cam.scale);
+      ctx.lineTo(x + w2 * cam.scale, y);
+      ctx.lineTo(x, y + h2 * cam.scale);
+      ctx.lineTo(x - w2 * cam.scale, y);
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+}
+
+function draw() {
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 0, w, h);
+  drawIso();
+}
+
+draw();
+
+// toggle menu inferior
+const toggleBottom = document.getElementById("menuToggleBottom");
+const menu = document.getElementById("menu");
+
+toggleBottom.addEventListener('click', () => {
+  menu.classList.toggle("open");
+  toggleBottom.textContent = menu.classList.contains("open") ? "▲ Menu" : "▼ Menu";
+});
+</script>
+</body>
+</html>
