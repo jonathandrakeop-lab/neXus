@@ -2,12 +2,12 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Grid Isométrica + Menu</title>
+<title>Grid Isométrica + Menu Horizontal</title>
 <style>
   html, body { margin:0; padding:0; overflow:hidden; background:#111; font-family:sans-serif; }
   canvas { display:block; }
 
-  /* menu inferior */
+  /* botão do menu inferior */
   #menuToggleBottom {
     position:fixed;
     bottom:0;
@@ -25,6 +25,7 @@
   }
   #menuToggleBottom:hover { background:#333; }
 
+  /* menu horizontal e curto */
   #menu {
     position:fixed;
     bottom:0;
@@ -32,11 +33,11 @@
     transform:translateX(-50%);
     background:#222;
     border-radius:10px 10px 0 0;
-    width:300px;
-    max-height:300px;
+    width:500px;         /* mais largo */
+    max-height:150px;    /* mais curto verticalmente */
     overflow:hidden;
     display:flex;
-    flex-direction:column;
+    flex-direction:row;  /* horizontal */
     gap:10px;
     padding:10px;
     box-sizing:border-box;
@@ -59,7 +60,11 @@
     border-radius:6px;
     padding:10px;
     color:#fff;
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
   }
+
 </style>
 </head>
 <body>
@@ -71,8 +76,10 @@
 <!-- menu inferior -->
 <div id="menu">
   <div id="menuContent">
-    <p>Conteúdo do menu</p>
-    <p>Adicione aqui o que quiser</p>
+    <div>Item 1</div>
+    <div>Item 2</div>
+    <div>Item 3</div>
+    <div>Item 4</div>
   </div>
 </div>
 
