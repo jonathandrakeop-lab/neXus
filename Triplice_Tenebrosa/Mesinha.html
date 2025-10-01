@@ -252,6 +252,11 @@ cells.forEach(cell=>{
       if(!cardData) return;
 
       if(owner==='enemy'){ cardElem.innerHTML=""; ['top','right','bottom','left'].forEach(side=>{ const n=document.createElement('div'); n.classList.add('number',side); n.textContent=cardData[side]; cardElem.appendChild(n); }); const nameDiv=document.createElement('div'); nameDiv.classList.add('card-name'); nameDiv.textContent=cardData.name; cardElem.appendChild(nameDiv);}
+      if(cardData.image){
+  const img=document.createElement('img');
+  img.src=cardData.image;
+  cardElem.appendChild(img);
+}
       cell.appendChild(cardElem); cardElem.setAttribute('draggable','false'); cardElem.style.cursor='default';
       const cardNumbers={top:cardData.top,right:cardData.right,bottom:cardData.bottom,left:cardData.left,owner:owner};
       verificarCaptura(cell,cardNumbers); verificarFimDeJogo(); alternarTurno();
@@ -291,6 +296,11 @@ function jogadaInimigo(){
   else{ cardElem=enemyCards[Math.floor(Math.random()*enemyCards.length)]; cardData=savedCards.slice(0,5).find(c=>c.name===cardElem.dataset.cardId); cell=emptyCells[Math.floor(Math.random()*emptyCells.length)]; }
 
   cardElem.innerHTML=""; ['top','right','bottom','left'].forEach(side=>{ const n=document.createElement('div'); n.classList.add('number',side); n.textContent=cardData[side]; cardElem.appendChild(n); });
+  if(cardData.image){
+  const img=document.createElement('img');
+  img.src=cardData.image;
+  cardElem.appendChild(img);
+}
   const nameDiv=document.createElement('div'); nameDiv.classList.add('card-name'); nameDiv.textContent=cardData.name; cardElem.appendChild(nameDiv);
   const cardNumbers={top:cardData.top,right:cardData.right,bottom:cardData.bottom,left:cardData.left,owner:'enemy'};
   colocarCarta(cell,cardElem,cardNumbers);
