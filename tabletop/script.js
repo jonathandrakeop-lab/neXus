@@ -1,328 +1,353 @@
-const canvas = document.getElementById("canvas"),
-      ctx = canvas.getContext("2d");
-let w = innerWidth, h = innerHeight;
-canvas.width = w;
-canvas.height = h;
+/* --- Canvas e grid isométrico --- */
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let w = window.innerWidth, h = window.innerHeight;
+canvas.width = w; canvas.height = h;
 
-onresize = () => {
-  w = innerWidth;
-  h = innerHeight;
-  canvas.width = w;
-  canvas.height = h;
-  draw();
-};
+let cam = { x: 0, y: 0, scale: 1 }, panning = false, last = {};
 
-let cam = { x: 0, y: 0, scale: 1 },
-    panning = false,
-    last = {},
-    draggingToken = null,
-    offset = { x: 0, y: 0 },
-    selectedToken = null;
-
-// cache de imagens
-const imgCache = {};
-function getImage(src, cb) {
-  if (imgCache[src]) { cb(imgCache[src]); return; }
-  const im = new Image();
-  im.onload = () => {
-    const tmp = document.createElement("canvas");
-    tmp.width = im.width;
-    tmp.height = im.height;
-    const tctx = tmp.getContext("2d");
-    tctx.drawImage(im, 0, 0);
-    const data = tctx.getImageData(0, 0, im.width, im.height);
-    imgCache[src] = { img: im, data };
-    cb(imgCache[src]);
-  };
-  im.src = src;
-}
-
-// instâncias
-let instances = JSON.parse(localStorage.getItem("instances") || "[]");
-
-// hitTest
-function hitTest(inst, mx, my) {
-  const cache = imgCache[inst.src];
-  if (!cache) return false;
-  const { img, data } = cache;
-  const base = inst.size * 50;
-  const iw = img.width, ih = img.height, aspect = iw / ih;
-  let drawW, drawH;
-  if (aspect >= 1) { drawW = base; drawH = base / aspect; } 
-  else { drawW = base * aspect; drawH = base; }
-
-  const relX = mx - inst.x, relY = my - inst.y;
-  const rot = -(inst.rotation || 0);
-  const cos = Math.cos(rot), sin = Math.sin(rot);
-  let rx = relX * cos - relY * sin;
-  let ry = relX * sin + relY * cos;
-  if (inst.flipped) rx = -rx;
-
-  if (rx < -drawW / 2 || rx > drawW / 2 || ry < -drawH / 2 || ry > drawH / 2) return false;
-
-  const u = (rx + drawW / 2) / drawW;
-  const v = (ry + drawH / 2) / drawH;
-  const px = Math.floor(u * iw);
-  const py = Math.floor(v * ih);
-  const idx = (py * iw + px) * 4;
-  return data.data[idx + 3] > 10;
-}
-
-// eventos mouse
-canvas.onmousedown = e => {
-  if (e.button !== 0) return;
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left - w / 2) / cam.scale - cam.x;
-  const my = (e.clientY - rect.top - h / 2) / cam.scale - cam.y;
-  for (let i = instances.length - 1; i >= 0; i--) {
-    const inst = instances[i];
-    if (hitTest(inst, mx, my)) {
-      draggingToken = inst;
-      offset.x = mx - inst.x;
-      offset.y = my - inst.y;
-      return;
-    }
-  }
-  panning = true;
-  last = { x: e.clientX, y: e.clientY };
-};
-
-canvas.onmouseup = () => {
-  panning = false;
-  draggingToken = null;
-  localStorage.setItem("instances", JSON.stringify(instances));
-};
-
-canvas.onmousemove = e => {
-  if (panning) {
-    cam.x += (e.clientX - last.x) / cam.scale;
-    cam.y += (e.clientY - last.y) / cam.scale;
-    last = { x: e.clientX, y: e.clientY };
-    draw();
-  }
-  if (draggingToken) {
-    const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left - w / 2) / cam.scale - cam.x;
-    const my = (e.clientY - rect.top - h / 2) / cam.scale - cam.y;
-    draggingToken.x = mx - offset.x;
-    draggingToken.y = my - offset.y;
-    draw();
-  }
-};
-
-// clique direito → menu flutuante
-canvas.oncontextmenu = e => {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left - w / 2) / cam.scale - cam.x;
-  const my = (e.clientY - rect.top - h / 2) / cam.scale - cam.y;
-  for (let i = instances.length - 1; i >= 0; i--) {
-    const inst = instances[i];
-    if (hitTest(inst, mx, my)) {
-      selectedToken = inst;
-      showTokenMenu(e.clientX, e.clientY);
-      return;
-    }
-  }
-};
-
-// clique fora → fecha menu
-document.addEventListener("mousedown", e => {
-  if (tokenMenu.style.display === "flex" && !tokenMenu.contains(e.target)) {
-    hideTokenMenu();
-  }
+window.addEventListener('resize', () => { 
+    w = window.innerWidth; 
+    h = window.innerHeight; 
+    canvas.width = w; 
+    canvas.height = h; 
+    draw(); 
 });
 
-// scroll
-canvas.onwheel = e => {
-  e.preventDefault();
-  if (draggingToken && e.shiftKey) {
-    const delta = e.deltaY < 0 ? 0.1 : -0.1;
-    draggingToken.size = Math.max(0.1, draggingToken.size + delta);
-    draw();
-  } else if (draggingToken) {
-    draggingToken.rotation = (draggingToken.rotation || 0) + e.deltaY * 0.001;
-    draw();
-  } else {
-    const f = 1.1;
-    cam.scale *= e.deltaY < 0 ? f : 1 / f;
-    draw();
-  }
-};
+let tileWidth = 80, tileHeight = 40, opacity = 0.3;
 
-// grid
-let opacity = 0.3;
-document.getElementById("gridBtn").onclick = () => { draw(); };
-document.getElementById("opacityControl").oninput = e => { opacity = e.target.value / 100; draw(); };
-function drawIso(tw = 80, th = 40) {
-  const w2 = tw / 2, h2 = th / 2;
-  const cols = Math.ceil(w / (w2 * cam.scale)) + 4;
-  const rows = Math.ceil(h / (h2 * cam.scale)) + 4;
-  ctx.strokeStyle = `rgba(255,255,255,${opacity})`;
-  for (let r = -rows; r < rows; r++) {
-    for (let c = -cols; c < cols; c++) {
-      const worldX = (c - r) * w2, worldY = (c + r) * h2;
-      const x = w / 2 + (worldX + cam.x) * cam.scale;
-      const y = h / 2 + (worldY + cam.y) * cam.scale;
-      ctx.beginPath();
-      ctx.moveTo(x, y - h2 * cam.scale);
-      ctx.lineTo(x + w2 * cam.scale, y);
-      ctx.lineTo(x, y + h2 * cam.scale);
-      ctx.lineTo(x - w2 * cam.scale, y);
-      ctx.closePath();
-      ctx.stroke();
+/* --- Instâncias do canvas --- */
+let instances = [];
+let draggingInstance = null, dragOffset = {x:0, y:0};
+
+/* --- Mouse events --- */
+canvas.addEventListener('mousedown', e => {
+    const mx = (e.clientX - w/2) / cam.scale - cam.x;
+    const my = (e.clientY - h/2) / cam.scale - cam.y;
+
+    for(let i=instances.length-1;i>=0;i--){
+        const obj = instances[i];
+        const size = obj.scale;
+        const localX = (mx - obj.worldX) / size + obj.width/2;
+        const localY = (my - obj.worldY) / size + obj.height/2;
+
+        if(localX>=0 && localX<obj.width && localY>=0 && localY<obj.height){
+            const index = (Math.floor(localY)*obj.width + Math.floor(localX))*4 + 3;
+            const alpha = obj.maskData?.data[index] || 0;
+            if(alpha>0){
+                draggingInstance = obj;
+                dragOffset.x = mx - obj.worldX;
+                dragOffset.y = my - obj.worldY;
+                return;
+            }
+        }
     }
-  }
+
+    panning = true;
+    last = {x:e.clientX, y:e.clientY};
+});
+
+canvas.addEventListener('mouseup', ()=>{ draggingInstance = null; panning = false; });
+canvas.addEventListener('mouseleave', ()=>{ draggingInstance = null; panning = false; });
+
+canvas.addEventListener('mousemove', e => {
+    if(draggingInstance){
+        const mx = (e.clientX - w/2) / cam.scale - cam.x;
+        const my = (e.clientY - h/2) / cam.scale - cam.y;
+        draggingInstance.worldX = mx - dragOffset.x;
+        draggingInstance.worldY = my - dragOffset.y;
+        draw();
+    } else if(panning){
+        cam.x += (e.clientX - last.x)/cam.scale;
+        cam.y += (e.clientY - last.y)/cam.scale;
+        last = {x:e.clientX, y:e.clientY};
+        draw();
+    }
+});
+
+canvas.addEventListener('wheel', e => { 
+    e.preventDefault(); 
+    if(draggingInstance){
+        if(e.shiftKey){
+            const factor = e.deltaY < 0 ? 1.05 : 0.95;
+            draggingInstance.scale *= factor;
+        } else {
+            draggingInstance.rotation += e.deltaY < 0 ? -5 : 5;
+        }
+        draw();
+    } else {
+        const f = 1.1; 
+        cam.scale *= e.deltaY < 0 ? f : 1/f; 
+        draw();
+    }
+});
+
+/* --- Draw functions --- */
+function drawIso(){
+    const w2 = tileWidth/2, h2 = tileHeight/2;
+    const cols = Math.ceil(w/(w2*cam.scale))+4;
+    const rows = Math.ceil(h/(h2*cam.scale))+4;
+    ctx.strokeStyle = `rgba(255,255,255,${opacity})`;
+    ctx.lineWidth = 1;
+    for(let r=-rows; r<rows; r++){
+        for(let c=-cols; c<cols; c++){
+            const worldX = (c-r)*w2, worldY = (c+r)*h2;
+            const x = w/2 + (worldX+cam.x)*cam.scale;
+            const y = h/2 + (worldY+cam.y)*cam.scale;
+            ctx.beginPath();
+            ctx.moveTo(x, y-h2*cam.scale);
+            ctx.lineTo(x + w2*cam.scale, y);
+            ctx.lineTo(x, y+h2*cam.scale);
+            ctx.lineTo(x - w2*cam.scale, y);
+            ctx.closePath();
+            ctx.stroke();
+        }
+    }
 }
 
-// draw principal
-function draw() {
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 0, w, h);
-  drawIso();
-  instances.sort((a, b) => a.y + (a.size * 25) - (b.y + (b.size * 25)));
-  instances.forEach(inst => {
-    getImage(inst.src, cached => {
-      const img = cached.img;
-      const base = inst.size * 50 * cam.scale;
-      const x = w / 2 + (inst.x + cam.x) * cam.scale;
-      const y = h / 2 + (inst.y + cam.y) * cam.scale;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(inst.rotation || 0);
-      if (inst.flipped) ctx.scale(-1, 1);
-      const iw = img.width, ih = img.height, aspect = iw / ih;
-      let drawW, drawH;
-      if (aspect >= 1) { drawW = base; drawH = base / aspect; } 
-      else { drawW = base * aspect; drawH = base; }
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-      ctx.restore();
+function draw(){
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,w,h);
+    drawIso();
+
+    const sorted = [...instances].sort((a,b)=>{
+        if(a.cat==="mapas" || a.cat==="cenas") return -1;
+        if(b.cat==="mapas" || b.cat==="cenas") return 1;
+        return (a.worldY + a.height/2) - (b.worldY + b.height/2);
     });
-  });
+
+    sorted.forEach(obj=>{
+        if(!obj.visible) return;
+        const x = w/2 + (obj.worldX + cam.x) * cam.scale;
+        const y = h/2 + (obj.worldY + cam.y) * cam.scale;
+        const size = obj.scale * cam.scale;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(obj.rotation * Math.PI/180);
+        ctx.drawImage(obj.img, -obj.width/2 * size, -obj.height/2 * size, obj.width * size, obj.height * size);
+        ctx.restore();
+
+        if(obj.defaultText && obj.defaultText !== "None"){
+            ctx.fillStyle="#fff";
+            ctx.font = `${obj.fontSize}px ${obj.fontFamily}`;
+            ctx.textAlign="center";
+            ctx.fillText(obj.defaultText, x, y);
+        }
+    });
 }
+
+function getSizeScale(option){
+    switch(option){
+        case "Small": return 0.3;
+        case "Medium": return 0.5;
+        case "Large": return 0.8;
+        default: return 0.5;
+    }
+}
+
 draw();
 
-// toggle controles
-document.getElementById("menuToggle").onclick = () => {
-  document.getElementById("controls").classList.toggle("hidden");
-};
+/* --- Menu expandível --- */
+const submenu = document.getElementById("submenu"),
+      bottomBar = document.getElementById("bottomBar");
+let activeCat = null;
+const items = {cenas:[],mapas:[],props:[],tokens:[],attachments:[],docs:[]};
 
-// modal e categorias
-let currentCat = null, pendingImg = null;
-document.querySelectorAll(".category").forEach(cat => {
-  cat.onclick = () => {
-    currentCat = cat.dataset.cat;
-    openModal();
-  };
+bottomBar.querySelectorAll("img").forEach(icon=>{
+    icon.addEventListener("click",()=>{
+        const cat = icon.dataset.cat;
+        if(activeCat === cat){
+            submenu.classList.remove("open");
+            activeCat = null;
+        } else {
+            submenu.innerHTML = "";
+            items[cat].forEach(src=>{
+                const img = document.createElement("img");
+                img.src = src;
+                img.draggable = true;
+                submenu.appendChild(img);
+
+                img.addEventListener("dragstart", e=>{
+                    e.dataTransfer.setData("text/plain", JSON.stringify({src,cat}));
+                });
+            });
+            submenu.classList.add("open");
+            activeCat = cat;
+        }
+    });
 });
 
-function openModal() {
-  pendingImg = null;
-  document.getElementById("drop").textContent = "Selecione ou solte aqui";
-  document.getElementById("sizeInput").value = 1;
-  document.getElementById("modal").style.display = "flex";
-}
-function closeModal() { document.getElementById("modal").style.display = "none"; }
+/* --- Canvas Drop --- */
+canvas.addEventListener("dragover", e => e.preventDefault());
 
-const drop = document.getElementById("drop");
-drop.onclick = () => {
-  const inp = document.createElement("input");
-  inp.type = "file";
-  inp.onchange = e => loadFile(e.target.files[0]);
-  inp.click();
-};
-drop.ondragover = e => { e.preventDefault(); };
-drop.ondrop = e => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); };
+canvas.addEventListener("drop", e => {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("text/plain");
+    if(!data) return;
+    const {src,cat} = JSON.parse(data);
 
-function loadFile(file) {
-  if (!file) return;
-  const r = new FileReader();
-  r.onload = () => {
-    pendingImg = r.result;
-    drop.textContent = file.name;
-  };
-  r.readAsDataURL(file);
-}
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left - w/2) / cam.scale - cam.x;
+    const my = (e.clientY - rect.top - h/2) / cam.scale - cam.y;
 
-// ADICIONAR IMAGEM → agora funciona para todas categorias
-document.getElementById("addBtn").onclick = () => {
-  if (!pendingImg || !currentCat) return;
-  const size = +document.getElementById("sizeInput").value || 1;
-  const cats = JSON.parse(localStorage.getItem("categories") || "{}");
-  if (!cats[currentCat]) cats[currentCat] = [];
-  cats[currentCat].push({ src: pendingImg, size });
-  localStorage.setItem("categories", JSON.stringify(cats));
-  renderCategories();
-  closeModal();
-};
+    const img = new Image();
+    img.src = src;
+    img.onload = ()=>{
+        const maskCanvas = document.createElement("canvas");
+        maskCanvas.width = img.width;
+        maskCanvas.height = img.height;
+        const maskCtx = maskCanvas.getContext("2d");
+        maskCtx.drawImage(img,0,0);
+        const maskData = maskCtx.getImageData(0,0,img.width,img.height);
 
-document.getElementById("cancelBtn").onclick = closeModal;
+        instances.push({
+            img,
+            width: img.width,
+            height: img.height,
+            worldX: mx,
+            worldY: my,
+            scale: getSizeScale(sizeSelect.value),
+            rotation: parseFloat(rotationInput.value)||0,
+            visible: document.querySelector("#visibleToggle .active").dataset.value === "true",
+            locked: document.querySelector("#lockedToggle .active").dataset.value === "true",
+            fontSize: parseInt(fontSizeInput.value,10),
+            fontFamily: fontFamilySelect.value,
+            defaultText: defaultTextSelect.value,
+            cat,
+            maskData
+        });
+        draw();
+    };
+});
 
-// renderiza categorias
-function renderCategories() {
-  const cats = JSON.parse(localStorage.getItem("categories") || "{}");
-  document.querySelectorAll(".category").forEach(cat => {
-    const div = cat.querySelector(".thumbs");
-    div.innerHTML = "";
-    (cats[cat.dataset.cat] || []).forEach(item => {
-      const img = document.createElement("img");
-      img.src = item.src;
-      img.draggable = true;
-      img.ondragstart = e => {
-        e.dataTransfer.setData("item", JSON.stringify(item));
-      };
-      div.appendChild(img);
+/* --- Modal lógica --- */
+const modalOverlay = document.getElementById("modalOverlay"),
+      addButton = document.getElementById("addButton"),
+      closeBtn = document.getElementById("closeBtn"),
+      assetsGrid = document.getElementById("assetsGrid"),
+      tabs = document.querySelectorAll(".tabs button"),
+      modalNew = document.getElementById("modalNew"),
+      modalAdd = document.getElementById("modalAdd"),
+      openAddModal = document.getElementById("openAddModal"),
+      closeAddBtn = document.getElementById("closeAddBtn");
+
+addButton.addEventListener("click", ()=>{
+    modalOverlay.style.display="flex";
+    const catToOpen = activeCat || "cenas";
+    loadAssets(catToOpen);
+    activeCat = catToOpen;
+    tabs.forEach(b=>b.classList.remove("active"));
+    const tabBtn = [...tabs].find(b=>b.dataset.cat===catToOpen);
+    if(tabBtn) tabBtn.classList.add("active");
+});
+
+function closeModal(){ modalOverlay.style.display="none"; }
+modalOverlay.addEventListener("click", e => { if(e.target === modalOverlay) closeModal(); });
+closeBtn.addEventListener("click", closeModal);
+
+/* --- Load Assets --- */
+function loadAssets(cat){
+    assetsGrid.innerHTML = "";
+    if(items[cat].length === 0) return;
+
+    items[cat].forEach(src=>{
+        const div = document.createElement("div");
+        div.className = "asset";
+        div.innerHTML = `<img src="${src}">`;
+        assetsGrid.appendChild(div);
+
+        div.addEventListener("click", ()=>{
+            console.log("Asset selecionado:", src);
+        });
     });
-  });
 }
-renderCategories();
 
-// canvas drop de miniaturas
-canvas.ondrop = e => {
-  e.preventDefault();
-  const data = e.dataTransfer.getData("item");
-  if (!data) return;
-  const item = JSON.parse(data);
-  const rect = canvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left - w / 2) / cam.scale - cam.x;
-  const y = (e.clientY - rect.top - h / 2) / cam.scale - cam.y;
-  instances.push({ src: item.src, size: item.size, x, y, rotation: 0, flipped: false });
-  localStorage.setItem("instances", JSON.stringify(instances));
-  draw();
-};
-canvas.ondragover = e => e.preventDefault();
+tabs.forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+        tabs.forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        activeCat = btn.dataset.cat;
+        loadAssets(activeCat);
+    });
+});
 
-// toggle menu inferior
-const toggleBottom = document.getElementById("menuToggleBottom");
-const menu = document.getElementById("menu");
-toggleBottom.onclick = () => {
-  menu.classList.toggle("hidden");
-  toggleBottom.textContent = menu.classList.contains("hidden") ? "▲" : "▼";
-};
+const rightMenuToggle = document.getElementById("rightMenuToggle");
+const rightMenu = document.getElementById("rightMenu");
 
-// menu flutuante
-const tokenMenu = document.getElementById("tokenMenu");
-function showTokenMenu(x, y) {
-  tokenMenu.style.left = `${x + 10}px`;
-  tokenMenu.style.top = `${y + 10}px`;
-  tokenMenu.style.display = "flex";
+rightMenuToggle.addEventListener("click", () => {
+  rightMenu.classList.toggle("open");
+});
+
+
+/* --- Add modal toggle --- */
+openAddModal.addEventListener("click", ()=>{
+    modalNew.style.display="none";
+    modalAdd.style.display="flex";
+});
+closeAddBtn.addEventListener("click", ()=>{
+    modalAdd.style.display="none";
+    modalNew.style.display="flex";
+});
+
+/* --- Upload handling --- */
+const fileInput = document.getElementById("fileInput"),
+      uploadLink = document.getElementById("uploadLink"),
+      uploadBox = document.getElementById("uploadBox"),
+      previewImg = document.getElementById("previewImg");
+let uploadedData = null;
+
+uploadLink.addEventListener("click", ()=>fileInput.click());
+fileInput.addEventListener("change", handleFile);
+uploadBox.addEventListener("dragover", e => e.preventDefault());
+uploadBox.addEventListener("drop", e => {
+    e.preventDefault();
+    fileInput.files = e.dataTransfer.files;
+    handleFile();
+});
+
+function handleFile(){
+    const file = fileInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        uploadedData = e.target.result;
+        previewImg.src = uploadedData;
+        previewImg.style.display = "block";
+    };
+    reader.readAsDataURL(file);
 }
-function hideTokenMenu() {
-  tokenMenu.style.display = "none";
-  selectedToken = null;
+
+/* --- Sidebar toggles --- */
+function initToggle(id){
+    const toggle = document.getElementById(id);
+    toggle.querySelectorAll("button").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+            toggle.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+            btn.classList.add("active");
+        });
+    });
 }
-document.getElementById("deleteBtn").onclick = () => {
-  if (selectedToken) {
-    instances = instances.filter(inst => inst !== selectedToken);
-    localStorage.setItem("instances", JSON.stringify(instances));
-    draw();
-    hideTokenMenu();
-  }
-};
-document.getElementById("flipBtn").onclick = () => {
-  if (selectedToken) {
-    selectedToken.flipped = !selectedToken.flipped;
-    localStorage.setItem("instances", JSON.stringify(instances));
-    draw();
-  }
-};
+initToggle("visibleToggle");
+initToggle("lockedToggle");
+
+/* --- Import --- */
+const importBtn = document.getElementById("importBtn"),
+      sizeSelect = document.getElementById("sizeSelect"),
+      rotationInput = document.getElementById("rotationInput"),
+      fontSizeInput = document.getElementById("fontSizeInput"),
+      fontFamilySelect = document.getElementById("fontFamilySelect"),
+      defaultTextSelect = document.getElementById("defaultTextSelect");
+
+importBtn.addEventListener("click", ()=>{
+    if(!uploadedData) return;
+
+    items[activeCat].push(uploadedData);
+    loadAssets(activeCat);
+
+    modalAdd.style.display = "none";
+    modalNew.style.display = "flex";
+
+    previewImg.style.display = "none";
+    uploadedData = null;
+    fileInput.value = "";
+});
