@@ -810,32 +810,39 @@ document.addEventListener("click", e => {
     instanceMenuBottom.style.display = "none";
   }
 });
-
-/* --- SUPABASE MULTIPLAYER --- */
+/* --- SUPABASE MULTIPLAYER COM SALAS --- */
 
 // importa lib pelo CDN no HTML antes do script.js
 // <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
-const supabaseUrl = "https://oxlhrwkbsxepurfzvcdw.supabase.co";   // <-- troque pelo seu
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bGhyd2tic3hlcHVyZnp2Y2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MDk4NjcsImV4cCI6MjA3NDM4NTg2N30.wzXQ3oAvmp0kGsTzxE86gJoD8GlEPZtWHeWhWFX3VOo"              // <-- troque pelo seu
+// pega a sala da URL (?room=nome)
+const params = new URLSearchParams(window.location.search);
+const room = params.get("room") || "default"; 
+
+const supabaseUrl = "https://XXXX.supabase.co";   // <-- troque pelo seu
+const supabaseKey = "SUA-ANON-KEY";               // <-- troque pelo seu
 const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-// cada token precisa de um id único
+// garante id único para cada token
 function ensureId(obj){
   if(!obj.id){
     obj.id = crypto.randomUUID();
   }
 }
 
-// carregar tokens existentes
+// carregar tokens da sala atual
 async function loadTokens(){
-  const { data, error } = await supabase.from('tokens').select('*');
+  const { data, error } = await supabase
+    .from('tokens')
+    .select('*')
+    .eq('room', room);
+
   if(error) {
     console.error("Erro ao carregar tokens:", error);
     return;
   }
+
   data.forEach(t => {
-    // adiciona se não existir
     if(!instances.find(i => i.id === t.id)){
       instances.push({
         ...t,
@@ -843,7 +850,7 @@ async function loadTokens(){
         visible: true
       });
       const obj = instances.find(i=>i.id===t.id);
-      obj.img.src = t.src || "token.png"; // ajuste se quiser salvar caminho da imagem
+      obj.img.src = t.src || "token.png";
       obj.img.onload = draw;
     }
   });
@@ -851,29 +858,30 @@ async function loadTokens(){
 }
 loadTokens();
 
-// escutar mudanças em tempo real
-supabase.channel('tokens-channel')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'tokens' }, payload => {
-    const data = payload.new;
-    let token = instances.find(i=>i.id===data.id);
-    if(token){
-      token.worldX = data.x;
-      token.worldY = data.y;
-      token.rotation = data.rotation;
-      token.scale = data.scale;
-      draw();
-    } else {
-      // novo token apareceu
-      instances.push({
-        ...data,
-        img: new Image(),
-        visible: true
-      });
-      const obj = instances.find(i=>i.id===data.id);
-      obj.img.src = data.src || "token.png";
-      obj.img.onload = draw;
-    }
-  })
+// escutar mudanças em tempo real só da sala atual
+supabase.channel(`tokens-${room}`)
+  .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'tokens', filter: `room=eq.${room}` }, 
+      payload => {
+        const data = payload.new;
+        let token = instances.find(i=>i.id===data.id);
+        if(token){
+          token.worldX = data.x;
+          token.worldY = data.y;
+          token.rotation = data.rotation;
+          token.scale = data.scale;
+          draw();
+        } else {
+          instances.push({
+            ...data,
+            img: new Image(),
+            visible: true
+          });
+          const obj = instances.find(i=>i.id===data.id);
+          obj.img.src = data.src || "token.png";
+          obj.img.onload = draw;
+        }
+      })
   .subscribe();
 
 // salvar ou atualizar token
@@ -886,12 +894,13 @@ async function syncToken(obj){
       y: obj.worldY,
       rotation: obj.rotation,
       scale: obj.scale,
-      src: obj.img?.src || null
+      src: obj.img?.src || null,
+      room: room
     });
   if(error) console.error("Erro ao salvar token:", error);
 }
 
-// quando soltar um token arrastado, manda pro supabase
+// quando soltar um token arrastado, envia pro supabase
 canvas.addEventListener('mouseup', ()=>{
   if(draggingInstance){
     syncToken(draggingInstance);
