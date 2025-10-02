@@ -810,3 +810,90 @@ document.addEventListener("click", e => {
     instanceMenuBottom.style.display = "none";
   }
 });
+
+/* --- SUPABASE MULTIPLAYER --- */
+
+// importa lib pelo CDN no HTML antes do script.js
+// <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+const supabaseUrl = "https://oxlhrwkbsxepurfzvcdw.supabase.co";   // <-- troque pelo seu
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bGhyd2tic3hlcHVyZnp2Y2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MDk4NjcsImV4cCI6MjA3NDM4NTg2N30.wzXQ3oAvmp0kGsTzxE86gJoD8GlEPZtWHeWhWFX3VOo"              // <-- troque pelo seu
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+// cada token precisa de um id único
+function ensureId(obj){
+  if(!obj.id){
+    obj.id = crypto.randomUUID();
+  }
+}
+
+// carregar tokens existentes
+async function loadTokens(){
+  const { data, error } = await supabase.from('tokens').select('*');
+  if(error) {
+    console.error("Erro ao carregar tokens:", error);
+    return;
+  }
+  data.forEach(t => {
+    // adiciona se não existir
+    if(!instances.find(i => i.id === t.id)){
+      instances.push({
+        ...t,
+        img: new Image(),
+        visible: true
+      });
+      const obj = instances.find(i=>i.id===t.id);
+      obj.img.src = t.src || "token.png"; // ajuste se quiser salvar caminho da imagem
+      obj.img.onload = draw;
+    }
+  });
+  draw();
+}
+loadTokens();
+
+// escutar mudanças em tempo real
+supabase.channel('tokens-channel')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'tokens' }, payload => {
+    const data = payload.new;
+    let token = instances.find(i=>i.id===data.id);
+    if(token){
+      token.worldX = data.x;
+      token.worldY = data.y;
+      token.rotation = data.rotation;
+      token.scale = data.scale;
+      draw();
+    } else {
+      // novo token apareceu
+      instances.push({
+        ...data,
+        img: new Image(),
+        visible: true
+      });
+      const obj = instances.find(i=>i.id===data.id);
+      obj.img.src = data.src || "token.png";
+      obj.img.onload = draw;
+    }
+  })
+  .subscribe();
+
+// salvar ou atualizar token
+async function syncToken(obj){
+  ensureId(obj);
+  const { error } = await supabase.from('tokens')
+    .upsert({
+      id: obj.id,
+      x: obj.worldX,
+      y: obj.worldY,
+      rotation: obj.rotation,
+      scale: obj.scale,
+      src: obj.img?.src || null
+    });
+  if(error) console.error("Erro ao salvar token:", error);
+}
+
+// quando soltar um token arrastado, manda pro supabase
+canvas.addEventListener('mouseup', ()=>{
+  if(draggingInstance){
+    syncToken(draggingInstance);
+  }
+});
