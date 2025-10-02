@@ -11,6 +11,9 @@ window.addEventListener('resize', () => {
     h = window.innerHeight; 
     canvas.width = w; 
     canvas.height = h; 
+    fogCanvas.width = w;
+    fogCanvas.height = h;
+    resetFog();
     draw(); 
 });
 
@@ -20,10 +23,87 @@ let tileWidth = 80, tileHeight = 40, opacity = 0.3;
 let instances = [];
 let draggingInstance = null, dragOffset = {x:0, y:0};
 
+/* --- Sistema de desenho --- */
+let drawings = [];          
+let currentPath = null;     
+let drawingActive = false;  
+let drawColor = "#ff0";     
+let drawWidth = 3;          
+
+/* --- Sistema da régua --- */
+let rulerActive = false;
+let rulerStart = null;
+let rulerEnd = null;
+
+/* --- Fog of War --- */
+let fogEnabled = false;
+let fogOpacity = 1.0;
+let fogCanvas = document.createElement("canvas");
+let fogCtx = fogCanvas.getContext("2d");
+fogCanvas.width = w;
+fogCanvas.height = h;
+
+function resetFog() {
+  fogCtx.fillStyle = "black";
+  fogCtx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+}
+resetFog();
+
+/* --- Pointer compartilhado --- */
+let pointers = [];
+let myPointerId = "player1"; 
+
+function updateMyPointer(x, y) {
+    let p = pointers.find(p => p.id === myPointerId);
+    if (!p) {
+        p = { id: myPointerId, trail: [], active: false };
+        pointers.push(p);
+    }
+    if (p.active) {
+        p.trail.push({ x, y });
+        if (p.trail.length > 10) p.trail.shift();
+    }
+}
+
+function clearMyPointer() {
+    const p = pointers.find(p => p.id === myPointerId);
+    if (p) {
+        p.trail = [];
+        p.active = false;
+    }
+}
+
 /* --- Mouse events --- */
 canvas.addEventListener('mousedown', e => {
+    if (e.button === 2 && currentTool === "draw") return; 
+
     const mx = (e.clientX - w/2) / cam.scale - cam.x;
     const my = (e.clientY - h/2) / cam.scale - cam.y;
+
+    if (currentTool === "draw" && e.button === 0) {
+        drawingActive = true;
+        currentPath = [{x: mx, y: my, color: drawColor, width: drawWidth}];
+        drawings.push(currentPath);
+        return;
+    }
+
+    if (currentTool === "ruler" && e.button === 0) {
+        rulerActive = true;
+        rulerStart = { x: mx, y: my };
+        rulerEnd = { x: mx, y: my };
+        return;
+    }
+
+    if (currentTool === "pointer" && e.button === 0) {
+        let p = pointers.find(p => p.id === myPointerId);
+        if (!p) {
+            p = { id: myPointerId, trail: [], active: true };
+            pointers.push(p);
+        }
+        p.active = true;
+        draw();
+        return;
+    }
 
     for(let i=instances.length-1;i>=0;i--){
         const obj = instances[i];
@@ -43,25 +123,102 @@ canvas.addEventListener('mousedown', e => {
         }
     }
 
-    panning = true;
-    last = {x:e.clientX, y:e.clientY};
+    if (currentTool === "hand") {
+        panning = true;
+        last = {x:e.clientX, y:e.clientY};
+    }
 });
 
-canvas.addEventListener('mouseup', ()=>{ draggingInstance = null; panning = false; });
-canvas.addEventListener('mouseleave', ()=>{ draggingInstance = null; panning = false; });
+canvas.addEventListener('mouseup', e => { 
+    draggingInstance = null; 
+    panning = false; 
+    if (drawingActive) {
+        drawingActive = false;
+        currentPath = null;
+    }
+    if (currentTool === "ruler" && rulerActive) {
+        rulerActive = false;
+        rulerStart = null;
+        rulerEnd = null;
+        draw();
+    }
+    if (currentTool === "pointer") {
+        clearMyPointer();
+        draw();
+    }
+});
+
+canvas.addEventListener('mouseleave', ()=>{ 
+    draggingInstance = null; 
+    panning = false; 
+    drawingActive = false; 
+    currentPath = null; 
+    rulerActive = false;
+    clearMyPointer();
+});
 
 canvas.addEventListener('mousemove', e => {
-    if(draggingInstance){
-        const mx = (e.clientX - w/2) / cam.scale - cam.x;
-        const my = (e.clientY - h/2) / cam.scale - cam.y;
+    const mx = (e.clientX - w/2) / cam.scale - cam.x;
+    const my = (e.clientY - h/2) / cam.scale - cam.y;
+
+    if (draggingInstance){
         draggingInstance.worldX = mx - dragOffset.x;
         draggingInstance.worldY = my - dragOffset.y;
         draw();
-    } else if(panning){
+    } else if (panning){
         cam.x += (e.clientX - last.x)/cam.scale;
         cam.y += (e.clientY - last.y)/cam.scale;
         last = {x:e.clientX, y:e.clientY};
         draw();
+    } else if (drawingActive && currentTool === "draw") {
+        currentPath.push({x: mx, y: my, color: drawColor, width: drawWidth});
+        draw();
+    } else if (currentTool === "ruler" && rulerActive) {
+        rulerEnd = { x: mx, y: my };
+        draw();
+    } else if (currentTool === "pointer") {
+        let p = pointers.find(p => p.id === myPointerId);
+        if (p && p.active) {
+            updateMyPointer(mx, my);
+            draw();
+        }
+    }
+});
+
+/* --- Menu flutuante de desenho --- */
+const drawMenu = document.createElement("div");
+drawMenu.id = "drawMenu";
+drawMenu.innerHTML = `
+  <div class="field">
+    <label>Espessura</label>
+    <input type="range" id="drawWidthInput" min="1" max="20" value="3">
+  </div>
+  <div class="field">
+    <label>Cor</label>
+    <input type="color" id="drawColorInput" value="#ffff00">
+  </div>
+`;
+drawMenu.style.display = "none";
+document.body.appendChild(drawMenu);
+
+const drawWidthInput = drawMenu.querySelector("#drawWidthInput");
+const drawColorInput = drawMenu.querySelector("#drawColorInput");
+
+drawWidthInput.addEventListener("input", () => { drawWidth = parseInt(drawWidthInput.value,10); });
+drawColorInput.addEventListener("input", () => { drawColor = drawColorInput.value; });
+
+canvas.addEventListener("contextmenu", e => {
+    if (currentTool === "draw") {
+        e.preventDefault();
+        drawMenu.style.left = e.clientX + "px";
+        drawMenu.style.top = e.clientY + "px";
+        drawMenu.style.display = "flex";
+    }
+});
+
+document.addEventListener("click", e => {
+    if (drawMenu.style.display === "flex" && !drawMenu.contains(e.target) && e.button === 0) {
+        drawMenu.style.display = "none";
     }
 });
 
@@ -110,6 +267,7 @@ function draw(){
     ctx.fillRect(0,0,w,h);
     drawIso();
 
+    // instâncias
     const sorted = [...instances].sort((a,b)=>{
         if(a.cat==="mapas" || a.cat==="cenas") return -1;
         if(b.cat==="mapas" || b.cat==="cenas") return 1;
@@ -118,6 +276,8 @@ function draw(){
 
     sorted.forEach(obj=>{
         if(!obj.visible) return;
+        if(obj.cat === "docs") return;
+
         const x = w/2 + (obj.worldX + cam.x) * cam.scale;
         const y = h/2 + (obj.worldY + cam.y) * cam.scale;
         const size = obj.scale * cam.scale;
@@ -134,6 +294,100 @@ function draw(){
             ctx.fillText(obj.defaultText, x, y);
         }
     });
+
+    // desenhos
+    drawings.forEach(path => {
+        if (path.length < 2) return;
+        ctx.beginPath();
+        path.forEach((p,i) => {
+            const x = w/2 + (p.x + cam.x) * cam.scale;
+            const y = h/2 + (p.y + cam.y) * cam.scale;
+            if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        });
+        ctx.strokeStyle = path[0].color;
+        ctx.lineWidth = path[0].width;
+        ctx.stroke();
+    });
+
+    // régua
+    if (rulerStart && rulerEnd) {
+        const x1 = w/2 + (rulerStart.x + cam.x) * cam.scale;
+        const y1 = h/2 + (rulerStart.y + cam.y) * cam.scale;
+        const x2 = w/2 + (rulerEnd.x + cam.x) * cam.scale;
+        const y2 = h/2 + (rulerEnd.y + cam.y) * cam.scale;
+
+        ctx.strokeStyle = "#0ff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        const dx = (rulerEnd.x - rulerStart.x) / tileWidth;
+        const dy = (rulerEnd.y - rulerStart.y) / tileHeight;
+        const dist = Math.round(Math.sqrt(dx*dx + dy*dy));
+
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        ctx.fillStyle = "#0ff";
+        ctx.font = "16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${dist} tiles`, midX, midY - 10);
+    }
+
+    // fog
+    if (fogEnabled) {
+        ctx.globalAlpha = fogOpacity;
+        ctx.drawImage(fogCanvas, 0, 0);
+        ctx.globalAlpha = 1.0;
+
+        instances.filter(obj => obj.cat === "docs").forEach(obj => {
+            const x = w/2 + (obj.worldX + cam.x) * cam.scale;
+            const y = h/2 + (obj.worldY + cam.y) * cam.scale;
+            const size = obj.scale * cam.scale;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(obj.rotation * Math.PI/180);
+            ctx.drawImage(obj.img, -obj.width/2 * size, -obj.height/2 * size, obj.width * size, obj.height * size);
+            ctx.restore();
+        });
+    }
+
+    // pointers
+    if (pointers.length > 0) {
+        ctx.save();
+        pointers.forEach(p => {
+            if (!p.active || p.trail.length === 0) return;
+
+            ctx.strokeStyle = "rgba(255,0,0,0.7)";
+            ctx.fillStyle = "rgba(255,0,0,0.9)";
+            ctx.lineWidth = 4;
+
+            for (let i = 0; i < p.trail.length; i++) {
+                const point = p.trail[i];
+                const x = w/2 + (point.x + cam.x) * cam.scale;
+                const y = h/2 + (point.y + cam.y) * cam.scale;
+
+                if (i === p.trail.length - 1) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 10, 0, Math.PI*2);
+                    ctx.fill();
+                }
+
+                if (i > 0) {
+                    const prev = p.trail[i-1];
+                    const px = w/2 + (prev.x + cam.x) * cam.scale;
+                    const py = h/2 + (prev.y + cam.y) * cam.scale;
+
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                }
+            }
+        });
+        ctx.restore();
+    }
 }
 
 function getSizeScale(option){
@@ -146,6 +400,47 @@ function getSizeScale(option){
 }
 
 draw();
+
+/* --- Submenu Fog --- */
+const fogMenu = document.createElement("div");
+fogMenu.id = "fogMenu";
+fogMenu.style.position = "fixed";
+fogMenu.style.background = "#1e1e2f";
+fogMenu.style.padding = "14px";
+fogMenu.style.borderRadius = "10px";
+fogMenu.style.display = "none";
+fogMenu.style.flexDirection = "column";
+fogMenu.style.gap = "12px";
+fogMenu.style.zIndex = 30;
+fogMenu.style.boxShadow = "0 4px 20px rgba(0,0,0,0.6)";
+fogMenu.innerHTML = `
+  <div class="field">
+    <label>Fog Ativo</label>
+    <button id="toggleFog" class="switch"><i data-lucide="cloud"></i></button>
+  </div>
+  <div class="field">
+    <label>Visão Mestre</label>
+    <button id="toggleMaster" class="switch"><i data-lucide="eye"></i></button>
+  </div>
+`;
+document.body.appendChild(fogMenu);
+
+const toggleFog = fogMenu.querySelector("#toggleFog");
+const toggleMaster = fogMenu.querySelector("#toggleMaster");
+
+toggleFog.addEventListener("click", () => {
+  fogEnabled = !fogEnabled;
+  toggleFog.classList.toggle("active", fogEnabled);
+  draw();
+});
+
+toggleMaster.addEventListener("click", () => {
+  fogOpacity = (fogOpacity === 1.0) ? 0.4 : 1.0;
+  toggleMaster.classList.toggle("active", fogOpacity === 0.4);
+  draw();
+});
+
+lucide.createIcons();
 
 /* --- Menu expandível --- */
 const submenu = document.getElementById("submenu"),
@@ -271,13 +566,48 @@ tabs.forEach(btn=>{
     });
 });
 
+/* --- Right menu toggle --- */
 const rightMenuToggle = document.getElementById("rightMenuToggle");
 const rightMenu = document.getElementById("rightMenu");
+let currentTool = null; 
 
 rightMenuToggle.addEventListener("click", () => {
   rightMenu.classList.toggle("open");
 });
 
+/* --- Tool buttons logic --- */
+const toolButtons = rightMenu.querySelectorAll("button");
+
+if (toolButtons.length > 0) {
+  toolButtons[0].classList.add("active");
+  currentTool = toolButtons[0].dataset.tool;
+  console.log("Ferramenta padrão ativa:", currentTool);
+}
+
+toolButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    toolButtons.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentTool = btn.dataset.tool;
+    console.log("Ferramenta ativa:", currentTool);
+
+    drawMenu.style.display = "none";
+    fogMenu.style.display = "none";
+
+    if (currentTool === "draw") {
+      drawMenu.style.left = (btn.getBoundingClientRect().left - 160) + "px";
+      drawMenu.style.top = (btn.getBoundingClientRect().top) + "px";
+      drawMenu.style.display = "flex";
+    }
+
+    if (currentTool === "fog") {
+      fogMenu.style.left = (btn.getBoundingClientRect().left - 160) + "px";
+      fogMenu.style.top = (btn.getBoundingClientRect().top) + "px";
+      fogMenu.style.display = "flex";
+      lucide.createIcons();
+    }
+  });
+});
 
 /* --- Add modal toggle --- */
 openAddModal.addEventListener("click", ()=>{
@@ -350,4 +680,133 @@ importBtn.addEventListener("click", ()=>{
     previewImg.style.display = "none";
     uploadedData = null;
     fileInput.value = "";
+});
+/* --- Menus de instância --- */
+const instanceMenuLeft = document.createElement("div");
+instanceMenuLeft.id = "instanceMenuLeft";
+Object.assign(instanceMenuLeft.style, {
+  position: "fixed",
+  display: "none",
+  flexDirection: "column",
+  gap: "8px",
+  background: "#1e1e2f",
+  padding: "8px",
+  borderRadius: "8px",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
+  zIndex: 2000
+});
+instanceMenuLeft.innerHTML = `
+  <button title="Copiar">📋</button>
+  <button title="Attach">🔗</button>
+  <button title="Trocar imagem">🖼</button>
+`;
+document.body.appendChild(instanceMenuLeft);
+
+const instanceMenuBottom = document.createElement("div");
+instanceMenuBottom.id = "instanceMenuBottom";
+Object.assign(instanceMenuBottom.style, {
+  position: "fixed",
+  display: "none",
+  flexDirection: "row",
+  gap: "8px",
+  background: "#1e1e2f",
+  padding: "8px",
+  borderRadius: "8px",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
+  zIndex: 2000
+});
+instanceMenuBottom.innerHTML = `
+  <button title="Hide">👁</button>
+  <button title="Lock">🔒</button>
+  <button title="Duplicar">⧉</button>
+  <button title="Deletar">🗑</button>
+`;
+document.body.appendChild(instanceMenuBottom);
+
+// estilizar todos botões
+[...instanceMenuLeft.querySelectorAll("button"), ...instanceMenuBottom.querySelectorAll("button")].forEach(btn=>{
+  Object.assign(btn.style, {
+    background: "#2b2b3c",
+    border: "none",
+    color: "#fff",
+    width: "36px",
+    height: "36px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "18px"
+  });
+  btn.addEventListener("mouseenter", ()=> btn.style.background = "#444");
+  btn.addEventListener("mouseleave", ()=> btn.style.background = "#2b2b3c");
+});
+
+/* --- Lógica de clique em instâncias --- */
+let selectedInstance = null;
+
+// Função utilitária para achar instância clicada
+function pickInstance(mx, my){
+  for (let i = instances.length-1; i>=0; i--) {
+    const obj = instances[i];
+    const size = obj.scale;
+    const localX = (mx - obj.worldX) / size + obj.width/2;
+    const localY = (my - obj.worldY) / size + obj.height/2;
+
+    if(localX>=0 && localX<obj.width && localY>=0 && localY<obj.height){
+      const index = (Math.floor(localY)*obj.width + Math.floor(localX))*4 + 3;
+      const alpha = obj.maskData?.data[index] || 0;
+      if(alpha>0){
+        return obj;
+      }
+    }
+  }
+  return null;
+}
+
+/* --- Clique direito: menu lateral ao lado da instância --- */
+canvas.addEventListener("contextmenu", e => {
+  e.preventDefault();
+
+  const mx = (e.clientX - w/2) / cam.scale - cam.x;
+  const my = (e.clientY - h/2) / cam.scale - cam.y;
+  selectedInstance = pickInstance(mx, my);
+
+  if (selectedInstance) {
+    const screenX = w/2 + (selectedInstance.worldX + cam.x) * cam.scale;
+    const screenY = h/2 + (selectedInstance.worldY + cam.y) * cam.scale;
+
+    instanceMenuLeft.style.left = (screenX + (selectedInstance.width * selectedInstance.scale * cam.scale / 2) + 15) + "px";
+    instanceMenuLeft.style.top = (screenY) + "px";
+    instanceMenuLeft.style.display = "flex";
+    instanceMenuBottom.style.display = "none";
+  } else {
+    instanceMenuLeft.style.display = "none";
+  }
+});
+
+/* --- Clique esquerdo: menu embaixo da instância --- */
+canvas.addEventListener("click", e => {
+  if (e.button !== 0) return;
+
+  const mx = (e.clientX - w/2) / cam.scale - cam.x;
+  const my = (e.clientY - h/2) / cam.scale - cam.y;
+  selectedInstance = pickInstance(mx, my);
+
+  if (selectedInstance) {
+    const screenX = w/2 + (selectedInstance.worldX + cam.x) * cam.scale;
+    const screenY = h/2 + (selectedInstance.worldY + cam.y) * cam.scale;
+
+    instanceMenuBottom.style.left = (screenX - instanceMenuBottom.offsetWidth/2) + "px";
+    instanceMenuBottom.style.top = (screenY + (selectedInstance.height * selectedInstance.scale * cam.scale / 2) + 15) + "px";
+    instanceMenuBottom.style.display = "flex";
+    instanceMenuLeft.style.display = "none";
+  } else {
+    instanceMenuBottom.style.display = "none";
+  }
+});
+
+// fecha menus ao clicar fora
+document.addEventListener("click", e => {
+  if (!instanceMenuLeft.contains(e.target) && !instanceMenuBottom.contains(e.target) && e.target !== canvas) {
+    instanceMenuLeft.style.display = "none";
+    instanceMenuBottom.style.display = "none";
+  }
 });

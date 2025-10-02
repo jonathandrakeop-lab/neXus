@@ -135,8 +135,8 @@
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
     const supabase = createClient(
-      "https://SEU-PROJECT.supabase.co",
-      "SEU-ANON-KEY"
+      "https://oxlhrwkbsxepurfzvcdw.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bGhyd2tic3hlcHVyZnp2Y2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MDk4NjcsImV4cCI6MjA3NDM4NTg2N30.wzXQ3oAvmp0kGsTzxE86gJoD8GlEPZtWHeWhWFX3VOo"
     );
 
     const toggleBtn = document.getElementById("menu-toggle");
@@ -145,13 +145,19 @@
       sidebar.classList.toggle("open");
     });
 
-    // Carregar sessão atual
+    // Função para checar usuário logado
     async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        document.getElementById("user-name").innerText = user.user_metadata.full_name || "Sem Nome";
-        document.getElementById("user-avatar").src = user.user_metadata.avatar_url || "https://via.placeholder.com/60";
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        // Se não tem sessão, redireciona pro login
+        window.location.href = "index.html";
+        return;
       }
+
+      const user = session.user;
+      document.getElementById("user-name").innerText = user.user_metadata.full_name || "Sem Nome";
+      document.getElementById("user-avatar").src = user.user_metadata.avatar_url || "https://via.placeholder.com/60";
     }
 
     loadUser();

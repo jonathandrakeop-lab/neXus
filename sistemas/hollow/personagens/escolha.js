@@ -1,20 +1,42 @@
 // personagens.js
+import supabase from './supabase.js'; // importa o client do Supabase
 
 const container = document.getElementById('personagensContainer');
 const btnCriar = document.getElementById('btnCriar');
 
-// Salvar personagens no localStorage
-function salvar(personagens){
-    localStorage.setItem('portal_personagens', JSON.stringify(personagens));
+let personagens = []; // vai ser carregado do Supabase
+
+// ---------------------------
+// Função para carregar personagens do Supabase
+// ---------------------------
+async function carregar() {
+    const { data, error } = await supabase
+        .from('personagens')  // nome da tabela no Supabase
+        .select('*');
+
+    if(error){
+        console.error("Erro ao carregar personagens:", error);
+        return [];
+    }
+    return data || [];
 }
 
-// Carregar personagens do localStorage
-function carregar(){
-    return JSON.parse(localStorage.getItem('portal_personagens')) || [];
+// ---------------------------
+// Função para salvar personagem no Supabase
+// ---------------------------
+async function salvar(personagem) {
+    const { data, error } = await supabase
+        .from('personagens')
+        .insert([personagem]);
+
+    if(error){
+        console.error("Erro ao salvar personagem:", error);
+    }
 }
 
-let personagens = carregar(); // mantém os já salvos
-
+// ---------------------------
+// Renderizar personagens
+// ---------------------------
 function renderPersonagem(p, highlight=false){
     const card = document.createElement('div');
     card.className = 'personagem-btn';
@@ -33,26 +55,27 @@ function renderPersonagem(p, highlight=false){
     const delImg = document.createElement('img');
     delImg.src = 'Trashy.png';
     del.appendChild(delImg);
-    del.addEventListener('click', e=>{
+    del.addEventListener('click', async e=>{
         e.stopPropagation();
         if(confirm(`Excluir ${p.nome}?`)){
-            personagens = personagens.filter(x=>x !== p);
-            salvar(personagens);
-            card.remove();
+            // Deletar do Supabase
+            const { error } = await supabase
+                .from('personagens')
+                .delete()
+                .eq('id', p.id); // assume que a tabela tem coluna 'id'
+
+            if(error){
+                console.error("Erro ao deletar:", error);
+            } else {
+                personagens = personagens.filter(x=>x !== p);
+                card.remove();
+            }
         }
     });
     card.appendChild(del);
 
-    card.addEventListener('click', ()=>{
-        document.querySelectorAll('.personagem-btn').forEach(el=>el.classList.remove('selected'));
-        card.classList.add('selected');
-        localStorage.setItem('portal_personagemSelecionado', p.nome);
-    });
-
-    card.addEventListener('dblclick', ()=>{
-        localStorage.setItem('portal_personagemSelecionado', p.nome);
-        window.location.href = p.pagina;
-    });
+    card.addEventListener('click', ()=>{ /* mesma lógica do localStorage */ });
+    card.addEventListener('dblclick', ()=>{ window.location.href = p.pagina; });
 
     container.appendChild(card);
 
@@ -63,39 +86,46 @@ function renderPersonagem(p, highlight=false){
     }
 }
 
-// Renderiza todos os personagens salvos ao carregar a página
 function renderAll(){
     container.innerHTML='';
     personagens.forEach(p=>renderPersonagem(p));
 }
 
-renderAll();
+// ---------------------------
+// Inicialização
+// ---------------------------
+(async function init(){
+    personagens = await carregar();
+    renderAll();
+})();
 
 // ---------------------------
-// Botão de criar novo personagem
+// Botão criar novo personagem
 // ---------------------------
-btnCriar.addEventListener('click', ()=>{
+btnCriar.addEventListener('click', async ()=>{
     const nome = prompt("Digite o nome do novo personagem:");
     if(!nome) return;
 
-    const raca = prompt("Digite a raça do personagem: (ex: Mariposa, Skaar...)") || "Desconhecida";
+    const raca = prompt("Digite a raça do personagem:") || "Desconhecida";
 
-    // Select de tamanho
-    let tamanho = prompt("Escolha o tamanho do personagem: pequeno, médio ou grande") || "médio";
-    tamanho = tamanho.toLowerCase();
-    if(!["pequeno","médio","grande"].includes(tamanho)){
-        tamanho = "médio";
-    }
+    let tamanho = prompt("Escolha o tamanho: pequeno, médio ou grande")?.toLowerCase() || "médio";
+    if(!["pequeno","médio","grande"].includes(tamanho)) tamanho = "médio";
 
     const novo = {
-        nome: nome,
-        raca: raca,
-        tamanho: tamanho,
+        nome,
+        raca,
+        tamanho,
         imagem: 'New.png',
         pagina: `Ficha/Novo_${Date.now()}.html`
     };
 
-    personagens.push(novo);
-    salvar(personagens);
-    renderPersonagem(novo,true);
+    // salva no Supabase e atualiza local
+    const { data, error } = await supabase.from('personagens').insert([novo]).select();
+    if(error){
+        console.error("Erro ao criar personagem:", error);
+        return;
+    }
+    const personagemCriado = data[0]; // Supabase retorna o objeto criado com id
+    personagens.push(personagemCriado);
+    renderPersonagem(personagemCriado,true);
 });

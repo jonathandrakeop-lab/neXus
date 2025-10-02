@@ -279,3 +279,91 @@ canvas { display:block; }
 #rightMenu button:hover::after {
   opacity: 1;
 }
+
+#rightMenu button.active {
+  background: #7c4dff;
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(124, 77, 255, 0.7);
+}
+
+/* menu flutuante de desenho */
+#drawMenu {
+  position: fixed;
+  background: #1e1e2f;
+  padding: 14px;
+  border-radius: 10px;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 30;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  animation: pop 0.2s ease;
+}
+
+#drawMenu .field label {
+  display: block;
+  font-size: 13px;
+  color: #bbb;
+  margin-bottom: 6px;
+}
+
+#drawMenu input[type="range"] {
+  width: 150px;
+  accent-color: #7c4dff;
+}
+
+#drawMenu input[type="color"] {
+  -webkit-appearance: none;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+#drawMenu input[type="color"]::-webkit-color-swatch {
+  border-radius: 6px;
+  border: none;
+}
+
+#drawMenu input[type="color"]::-moz-color-swatch {
+  border-radius: 6px;
+  border: none;
+}
+
+#drawColorInput {
+  width: 120px;
+  height: 120px;
+  margin-top: 5px;
+}
+
+#fogMenu button {
+  background: #2b2b3c;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+#fogMenu button:hover {
+  background: #444;
+}
+
+#fogMenu button.active {
+  background: #7c4dff;
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(124, 77, 255, 0.7);
+}
+
+#fogMenu svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+  color: #fff;
+}
