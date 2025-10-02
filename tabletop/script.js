@@ -810,15 +810,16 @@ document.addEventListener("click", e => {
     instanceMenuBottom.style.display = "none";
   }
 });
-/* --- SUPABASE MULTIPLAYER COM SALAS --- */
+/* --- SUPABASE MULTIPLAYER ESTILO OWLBEAR --- */
 
-// importa lib pelo CDN no HTML antes do script.js
+// ⚠️ no <head> do HTML precisa ter:
 // <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 // pega a sala da URL (?room=nome)
 const params = new URLSearchParams(window.location.search);
-const room = params.get("room") || "default"; 
+const room = params.get("room") || "default";
 
+// conecta no Supabase
 const supabaseUrl = "https://XXXX.supabase.co";   // <-- troque pelo seu
 const supabaseKey = "SUA-ANON-KEY";               // <-- troque pelo seu
 const supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -830,12 +831,14 @@ function ensureId(obj){
   }
 }
 
-// carregar tokens da sala atual
+/* --- PERSISTÊNCIA (BANCO) --- */
+
+// carregar tokens já existentes da sala
 async function loadTokens(){
   const { data, error } = await supabase
-    .from('tokens')
-    .select('*')
-    .eq('room', room);
+    .from("tokens")
+    .select("*")
+    .eq("room", room);
 
   if(error) {
     console.error("Erro ao carregar tokens:", error);
@@ -858,36 +861,10 @@ async function loadTokens(){
 }
 loadTokens();
 
-// escutar mudanças em tempo real só da sala atual
-supabase.channel(`tokens-${room}`)
-  .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'tokens', filter: `room=eq.${room}` }, 
-      payload => {
-        const data = payload.new;
-        let token = instances.find(i=>i.id===data.id);
-        if(token){
-          token.worldX = data.x;
-          token.worldY = data.y;
-          token.rotation = data.rotation;
-          token.scale = data.scale;
-          draw();
-        } else {
-          instances.push({
-            ...data,
-            img: new Image(),
-            visible: true
-          });
-          const obj = instances.find(i=>i.id===data.id);
-          obj.img.src = data.src || "token.png";
-          obj.img.onload = draw;
-        }
-      })
-  .subscribe();
-
-// salvar ou atualizar token
+// salvar/atualizar no banco
 async function syncToken(obj){
   ensureId(obj);
-  const { error } = await supabase.from('tokens')
+  const { error } = await supabase.from("tokens")
     .upsert({
       id: obj.id,
       x: obj.worldX,
@@ -900,9 +877,75 @@ async function syncToken(obj){
   if(error) console.error("Erro ao salvar token:", error);
 }
 
-// quando soltar um token arrastado, envia pro supabase
-canvas.addEventListener('mouseup', ()=>{
-  if(draggingInstance){
-    syncToken(draggingInstance);
+/* --- REALTIME BROADCAST (OWLBEAR STYLE) --- */
+
+const channel = supabase.channel(room, {
+  config: { broadcast: { self: false } }
+}).subscribe();
+
+// ouvir movimentos
+channel.on("broadcast", { event: "move" }, ({ payload }) => {
+  const token = instances.find(t => t.id === payload.id);
+  if(token){
+    Object.assign(token, payload);
+    draw();
   }
 });
+
+// ouvir novos tokens criados
+channel.on("broadcast", { event: "new-token" }, ({ payload }) => {
+  if(!instances.find(t => t.id === payload.id)){
+    const img = new Image();
+    img.src = payload.src || "token.png";
+    img.onload = () => draw();
+    instances.push({ ...payload, img, visible:true });
+    draw();
+  }
+});
+
+/* --- INTEGRAÇÃO COM SEU CANVAS --- */
+
+// quando soltar um token arrastado → atualiza banco e manda broadcast
+canvas.addEventListener("mouseup", ()=>{
+  if(draggingInstance){
+    ensureId(draggingInstance);
+
+    // manda pro banco (persistência)
+    syncToken(draggingInstance);
+
+    // manda broadcast (tempo real pros outros)
+    channel.send({
+      type: "broadcast",
+      event: "move",
+      payload: {
+        id: draggingInstance.id,
+        x: draggingInstance.worldX,
+        y: draggingInstance.worldY,
+        rotation: draggingInstance.rotation,
+        scale: draggingInstance.scale
+      }
+    });
+  }
+});
+
+// quando criar novo token (drop no canvas)
+function createToken(obj){
+  ensureId(obj);
+
+  // salvar no banco
+  syncToken(obj);
+
+  // mandar broadcast
+  channel.send({
+    type: "broadcast",
+    event: "new-token",
+    payload: {
+      id: obj.id,
+      x: obj.worldX,
+      y: obj.worldY,
+      rotation: obj.rotation,
+      scale: obj.scale,
+      src: obj.img?.src || null
+    }
+  });
+}
