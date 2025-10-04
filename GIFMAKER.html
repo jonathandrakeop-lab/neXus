@@ -1,221 +1,109 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Imagens → GIF (com preview)</title>
-<style>
-  :root{
-    --bg:#1f1f1f;
-    --panel:#2a2a2a;
-    --accent:#8a3ef6;
-    --muted:#bdbdbd;
-    --white:#f4f4f4;
-  }
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--white);font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
-  .app{width:960px;max-width:95%;padding:20px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);box-shadow:0 6px 30px rgba(0,0,0,0.6)}
-  h1{margin:0 0 12px;font-size:20px}
-  p.lead{margin:0 0 18px;color:var(--muted)}
-  .controls{display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
-  .btn{background:var(--panel);border:1px solid rgba(255,255,255,0.04);padding:10px 14px;border-radius:8px;cursor:pointer;color:var(--white);font-weight:600}
-  .btn.secondary{background:transparent;border:1px dashed rgba(255,255,255,0.06);color:var(--muted);font-weight:500}
-  .drop{height:140px;border-radius:10px;border:2px dashed rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);color:var(--muted);margin-bottom:14px;position:relative;overflow:auto;padding:10px}
-  .drop.dragging{border-color:var(--accent);box-shadow:0 6px 24px rgba(138,62,246,0.08)}
-  .thumbs{display:flex;gap:8px;flex-wrap:wrap}
-  .thumb{width:96px;height:64px;border-radius:8px;overflow:hidden;background:#111;display:flex;align-items:center;justify-content:center;position:relative;border:1px solid rgba(0,0,0,0.6)}
-  .thumb img{max-width:100%;max-height:100%;display:block}
-  .thumb .remove{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);padding:4px;border-radius:6px;cursor:pointer;font-size:12px}
-  label.inline{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px}
-  input[type=range]{width:160px}
-  .row{display:flex;gap:12px;align-items:center}
-  .progress{height:10px;background:#111;border-radius:999px;overflow:hidden;width:220px;border:1px solid rgba(255,255,255,0.02)}
-  .progress > div{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#6d3cf0)}
-  .footer{margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  a.download{background:var(--accent);color:white;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:700}
-  small{color:var(--muted)}
-  .danger{color:#ff8a8a}
-  .info{color:var(--muted);font-size:13px}
-  .opts{display:flex;gap:8px;align-items:center}
-  #previewCanvas{margin-top:14px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;max-width:100%;background:#000}
-</style>
+  <meta charset="UTF-8">
+  <title>Criador de GIF Transparente</title>
+  <style>
+    body {
+      background: #222;
+      color: #eee;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #preview {
+      margin: 20px auto;
+      display: block;
+      border: 2px solid #555;
+      background: transparent;
+      max-width: 100%;
+    }
+    input, button {
+      margin: 10px;
+      padding: 8px;
+    }
+  </style>
 </head>
 <body>
-  <div class="app" role="application">
-    <h1>Transformar imagens em GIF</h1>
-    <p class="lead">Arraste ou escolha imagens. Veja o preview, ajuste delay e tamanho, depois gere o GIF.</p>
+  <h1>Criador de GIF</h1>
+  <input type="file" id="input" multiple accept="image/*"><br>
+  Largura: <input type="number" id="width" value="300">
+  Altura: <input type="number" id="height" value="300"><br>
+  <button id="gerar">Gerar GIF</button>
+  <button id="baixar" disabled>Baixar GIF</button>
+  <br>
+  <img id="preview" alt="Preview do GIF" />
 
-    <div class="controls">
-      <label class="btn">
-        Selecionar imagens
-        <input id="fileInput" type="file" accept="image/*" multiple style="display:none" />
-      </label>
-
-      <label class="inline">
-        Delay (ms)
-        <input id="delayRange" type="range" min="50" max="2000" value="200" step="10" />
-        <strong id="delayVal">200</strong>
-      </label>
-
-      <label class="inline">
-        Largura
-        <input id="gifW" type="number" value="400" min="50" max="1000" style="width:70px">
-      </label>
-      <label class="inline">
-        Altura
-        <input id="gifH" type="number" value="300" min="50" max="1000" style="width:70px">
-      </label>
-
-      <label class="inline">
-        Loop
-        <input id="loopCheck" type="checkbox" checked />
-      </label>
-
-      <label class="inline">
-        Qualidade
-        <select id="qualitySel">
-          <option value="10">Alta</option>
-          <option value="20" selected>Média</option>
-          <option value="30">Baixa</option>
-        </select>
-      </label>
-
-      <button id="genBtn" class="btn" title="Gerar GIF">Gerar GIF</button>
-      <button id="clearBtn" class="btn secondary" title="Limpar tudo">Limpar</button>
-    </div>
-
-    <div id="dropZone" class="drop">
-      <div style="width:100%">
-        <div class="thumbs" id="thumbs"></div>
-        <div class="info" style="margin-top:8px">Arraste as imagens para cá, ou use "Selecionar imagens".</div>
-      </div>
-    </div>
-
-    <canvas id="previewCanvas" width="400" height="300"></canvas>
-
-    <div class="footer">
-      <div class="row">
-        <div class="progress"><div id="progressBar"></div></div>
-        <small id="status">Pronto</small>
-      </div>
-      <a id="downloadLink" class="download" style="display:none">Baixar GIF</a>
-      <small class="danger" id="error" style="display:none"></small>
-    </div>
-  </div>
-
-  <!-- gif.js -->
+  <!-- gif.js + worker -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js"></script>
+
   <script>
-    const drop = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const thumbs = document.getElementById('thumbs');
-    const delayRange = document.getElementById('delayRange');
-    const delayVal = document.getElementById('delayVal');
-    const genBtn = document.getElementById('genBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const progressBar = document.getElementById('progressBar');
-    const status = document.getElementById('status');
-    const downloadLink = document.getElementById('downloadLink');
-    const errorEl = document.getElementById('error');
-    const loopCheck = document.getElementById('loopCheck');
-    const qualitySel = document.getElementById('qualitySel');
-    const gifW = document.getElementById('gifW');
-    const gifH = document.getElementById('gifH');
-    const previewCanvas = document.getElementById('previewCanvas');
-    const pctx = previewCanvas.getContext('2d');
+    const input = document.getElementById('input');
+    const gerar = document.getElementById('gerar');
+    const baixar = document.getElementById('baixar');
+    const preview = document.getElementById('preview');
+    const widthInput = document.getElementById('width');
+    const heightInput = document.getElementById('height');
 
-    let images = [];
-    let previewTimer, previewIndex=0;
+    let gifBlob = null;
 
-    function setStatus(s){ status.textContent = s; }
-    function setError(msg){ if(!msg){ errorEl.style.display='none'; } else { errorEl.style.display='block'; errorEl.textContent=msg; } }
-    function updateProgress(p){ progressBar.style.width = Math.round(p*100)+'%'; }
+    gerar.addEventListener('click', () => {
+      const files = input.files;
+      if (!files.length) {
+        alert("Selecione imagens primeiro!");
+        return;
+      }
 
-    delayRange.addEventListener('input', ()=> { delayVal.textContent = delayRange.value; startPreview(); });
-    gifW.addEventListener('input', startPreview);
-    gifH.addEventListener('input', startPreview);
-
-    fileInput.addEventListener('change', e => { handleFiles([...e.target.files]); fileInput.value=''; });
-
-    function handleFiles(files){
-      setError(null);
-      const imgs = files.filter(f=>f.type.startsWith('image/'));
-      if(!imgs.length){ setError('Nenhuma imagem válida.'); return; }
-      imgs.forEach(f=>{
-        const url = URL.createObjectURL(f);
-        const img = new Image();
-        img.onload = ()=>{ images.push({img,width:img.naturalWidth,height:img.naturalHeight,url}); renderThumbs(); startPreview(); };
-        img.onerror = ()=>{ setError('Falha ao carregar imagem.'); };
-        img.src=url;
-      });
-    }
-
-    function renderThumbs(){
-      thumbs.innerHTML='';
-      images.forEach((it,idx)=>{
-        const div=document.createElement('div'); div.className='thumb';
-        const im=document.createElement('img'); im.src=it.url; div.appendChild(im);
-        const rem=document.createElement('div'); rem.className='remove'; rem.textContent='✕';
-        rem.onclick=()=>{ URL.revokeObjectURL(it.url); images.splice(idx,1); renderThumbs(); startPreview(); };
-        div.appendChild(rem); thumbs.appendChild(div);
-      });
-      setStatus(images.length? `${images.length} imagem(s)`:'Pronto');
-    }
-
-    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('dragging');}));
-    ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('dragging');}));
-    drop.addEventListener('drop', e=>{handleFiles([...e.dataTransfer.files]);});
-
-    clearBtn.addEventListener('click',()=>{images.forEach(it=>URL.revokeObjectURL(it.url));images=[];renderThumbs();downloadLink.style.display='none';updateProgress(0);setError(null);pctx.clearRect(0,0,previewCanvas.width,previewCanvas.height);clearInterval(previewTimer);});
-
-    function startPreview(){
-      clearInterval(previewTimer);
-      if(images.length===0) return;
-      previewCanvas.width=+gifW.value; previewCanvas.height=+gifH.value;
-      previewIndex=0;
-      previewTimer=setInterval(()=>{
-        pctx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
-        const img=images[previewIndex].img;
-        const ratio=Math.min(previewCanvas.width/img.width, previewCanvas.height/img.height);
-        const w=img.width*ratio,h=img.height*ratio;
-        pctx.drawImage(img,(previewCanvas.width-w)/2,(previewCanvas.height-h)/2,w,h);
-        previewIndex=(previewIndex+1)%images.length;
-      },+delayRange.value);
-    }
-
-    genBtn.addEventListener('click',()=>{
-      if(images.length===0){ setError('Adicione imagens.'); return; }
-      setError(null); updateProgress(0); setStatus('Preparando...'); genBtn.disabled=true;
-
-      const canvas=document.createElement('canvas');
-      canvas.width=+gifW.value; canvas.height=+gifH.value;
-      const ctx=canvas.getContext('2d');
-      const gif=new GIF({
-        workers:2, quality:+qualitySel.value,
-        workerScript:'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
-        width:+gifW.value, height:+gifH.value
+      const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: parseInt(widthInput.value),
+        height: parseInt(heightInput.value),
+        transparent: 0x00FF00 // cor chave usada como transparente
       });
 
-      images.forEach(it=>{
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        const ratio=Math.min(canvas.width/it.width, canvas.height/it.height);
-        const w=it.width*ratio,h=it.height*ratio;
-        ctx.drawImage(it.img,(canvas.width-w)/2,(canvas.height-h)/2,w,h);
-        gif.addFrame(ctx,{copy:true,delay:+delayRange.value});
-      });
+      let loaded = 0;
+      for (let i = 0; i < files.length; i++) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = parseInt(widthInput.value);
+            canvas.height = parseInt(heightInput.value);
+            const ctx = canvas.getContext('2d');
 
-      gif.on('progress',p=>{updateProgress(p); setStatus('Gerando... '+Math.round(p*100)+'%');});
-      gif.on('finished',blob=>{
-        const url=URL.createObjectURL(blob);
-        downloadLink.href=url; downloadLink.download='export.gif'; downloadLink.style.display='inline-block';
-        setStatus('Concluído'); updateProgress(1); genBtn.disabled=false;
-      });
+            // limpa sem pintar fundo → mantém pixels transparentes
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      gif._options=gif._options||{};
-      gif._options.repeat=loopCheck.checked?0:-1;
-      gif.render();
+            gif.addFrame(canvas, { delay: 300, dispose: 2 });
+            loaded++;
+            if (loaded === files.length) {
+              gif.on('finished', blob => {
+                gifBlob = blob;
+                const url = URL.createObjectURL(blob);
+                preview.src = url;
+                baixar.disabled = false;
+              });
+              gif.render();
+            }
+          };
+        };
+        reader.readAsDataURL(files[i]);
+      }
     });
 
-    drop.addEventListener('click',()=>fileInput.click());
+    baixar.addEventListener('click', () => {
+      if (gifBlob) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(gifBlob);
+        a.download = 'meu_gif_transparente.gif';
+        a.click();
+      }
+    });
   </script>
 </body>
 </html>

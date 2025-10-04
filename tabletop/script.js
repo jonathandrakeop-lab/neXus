@@ -949,3 +949,13 @@ function createToken(obj){
     }
   });
 }
+
+// Puxa a página e injeta dentro da mini janela
+fetch("../sistemas/hollow/personagens/ficha/index.html")
+  .then(res => res.text())
+  .then(html => {
+    document.getElementById("miniJanela").innerHTML = html;
+  })
+  .catch(err => {
+    console.error("Erro ao carregar mini janela:", err);
+  });
